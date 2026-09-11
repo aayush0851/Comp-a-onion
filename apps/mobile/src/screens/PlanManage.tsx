@@ -1,13 +1,11 @@
-import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow, stripe } from '../theme';
-import { BackPill, OutlineButton, PrimaryButton } from '../components/ui';
+import { colors, radius, shadow } from '../theme';
+import { Btn, Header, UserChip } from '../components/widgets';
 import { costModeLabel, formatDateKey, genderRestrictionLabel } from '../data';
-import { isPlanArchived, planArchiveReason, useAppState, useAppDispatch } from '../state';
+import { isPlanArchived, planArchiveReason, useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlanManage'>;
 
@@ -18,12 +16,9 @@ export default function PlanManage({ navigation, route }: Props) {
 
   if (!plan) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <BackPill onPress={() => navigation.navigate('MyPlans')} />
-          <Text style={styles.cardTitle}>Plan not found</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.screen}>
+        <Header variant="stack" title="Plan not found" onBack={() => navigation.navigate('MyPlans')} />
+      </View>
     );
   }
 
@@ -33,53 +28,56 @@ export default function PlanManage({ navigation, route }: Props) {
     ? Object.values(plan.decided).filter((d) => d === 'in').length
     : plan.requesters.length;
   const shapeLabel = plan.shape === 'duo' ? 'Just me + one' : plan.shape === 'group' ? `Up to ${plan.size} people` : 'Group size not set';
+  const reviewed = state.reviewedPlans.includes(plan.id);
+  const setupTags = state.setupTags[plan.id] ?? [];
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        eyebrow={`${when}${plan.approvalRequired ? ' · you approve' : ''}`}
+        title={plan.title}
+        subtitle={[plan.venue || 'Venue TBD', shapeLabel, genderRestrictionLabel(plan.genderRestriction)].join(' · ')}
+        onBack={() => navigation.navigate('MyPlans')}
+      />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={styles.header}>
-          <BackPill onPress={() => navigation.navigate('MyPlans')} />
-        </View>
-
-        <View style={styles.planCardWrap}>
-          <View style={styles.planCard}>
-            <View style={stripe(110)}>
-              <View style={styles.timeChip}>
-                <Text style={styles.timeLabel}>{when}</Text>
-              </View>
-              <View style={[styles.entryChip, { backgroundColor: plan.approvalRequired ? 'rgba(255,255,255,.9)' : colors.clay }]}>
-                <Text style={[styles.entryLabel, { color: plan.approvalRequired ? colors.inkSecondary : '#fff' }]}>
-                  {plan.approvalRequired ? 'You approve' : 'Open seats'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardTitle}>{plan.title}</Text>
-              <Text style={styles.cardVenue}>{plan.venue || 'Venue TBD'}</Text>
-              {archived && (
-                <View style={styles.archivedChip}>
-                  <Text style={styles.archivedLabel}>{planArchiveReason(plan)}</Text>
-                </View>
-              )}
-              {plan.tags.length > 0 && (
-                <View style={styles.tagRow}>
-                  {plan.tags.map((t) => (
-                    <View key={t} style={styles.tagChip}><Text style={styles.tagLabel}>{t}</Text></View>
-                  ))}
-                </View>
-              )}
-              <View style={styles.seatRule}>
-                <Text style={styles.seatLine}>{shapeLabel}</Text>
-                <View style={styles.shapeChip}>
-                  <Text style={styles.shapeLabel}>{genderRestrictionLabel(plan.genderRestriction)}</Text>
-                </View>
-              </View>
-              {!!costModeLabel(plan.costMode) && (
-                <Text style={styles.costLine}>{costModeLabel(plan.costMode)}</Text>
-              )}
+        {archived && (
+          <View style={styles.planCardWrap}>
+            <View style={styles.archivedChip}>
+              <Text style={styles.archivedLabel}>{planArchiveReason(plan)}</Text>
             </View>
           </View>
-        </View>
+        )}
+        {plan.tags.length > 0 && (
+          <View style={[styles.planCardWrap, styles.tagRow]}>
+            {plan.tags.map((t) => (
+              <View key={t} style={styles.tagChip}><Text style={styles.tagLabel}>{t}</Text></View>
+            ))}
+          </View>
+        )}
+        {!!costModeLabel(plan.costMode) && (
+          <Text style={[styles.costLine, styles.planCardWrap]}>{costModeLabel(plan.costMode)}</Text>
+        )}
+
+        {archived && joinedCount > 0 && reviewed && setupTags.length > 0 && (
+          <View style={styles.planCardWrap}>
+            <Text style={[styles.sectionLabel, { paddingHorizontal: 0, marginTop: 18 }]}>What people said about this plan</Text>
+            <View style={styles.reviewCard}>
+              {setupTags.map((t) => (
+                <View key={t} style={styles.wordPill}>
+                  <Text style={styles.wordLabel}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+        {archived && joinedCount > 0 && !reviewed && (
+          <View style={styles.planCardWrap}>
+            <Pressable style={styles.reviewPrompt} onPress={() => navigation.navigate('Review', { planId: plan.id })}>
+              <Text style={styles.reviewPromptText}>Leave a review for this plan →</Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.list}>
           <Text style={styles.sectionLabel}>
@@ -96,17 +94,18 @@ export default function PlanManage({ navigation, route }: Props) {
             const settled = !plan.approvalRequired || !!decision;
             return (
               <View key={q.id} style={styles.card}>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                  <View style={styles.avatar}><Text style={styles.avatarLabel}>{q.initials}</Text></View>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                      <Text style={styles.name}>{q.name}</Text>
-                      {q.isNew && (
-                        <View style={styles.newChip}><Text style={styles.newLabel}>New here</Text></View>
-                      )}
-                    </View>
-                    <Text style={styles.history}>{q.history}</Text>
-                    <Text style={styles.intro}>{q.intro}</Text>
+                    <UserChip
+                      name={q.name}
+                      initials={q.initials}
+                      tone={q.tone}
+                      rating={q.rating}
+                      count={q.ratingCount}
+                      verified={!q.isNew}
+                      meta={q.isNew ? 'New here · no plans yet' : q.history}
+                      onPress={() => navigation.navigate('RequesterProfile', { planId: plan.id, requesterId: q.id })}
+                    />
                   </View>
                   <Pressable
                     onPress={() => navigation.navigate('RequesterChat', { planId: plan.id, requesterId: q.id, name: q.name })}
@@ -115,15 +114,19 @@ export default function PlanManage({ navigation, route }: Props) {
                     <Text style={styles.messageLink}>Message</Text>
                   </Pressable>
                 </View>
+                <Text style={styles.intro}>“{q.intro}”</Text>
                 {!settled && plan.approvalRequired && !archived && (
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-                    <PrimaryButton
-                      label="Let them in"
-                      style={{ flex: 1, paddingVertical: 14 }}
-                      onPress={() => dispatch({ type: 'DECIDE_REQUESTER', planId: plan.id, requesterId: q.id, decision: 'in' })}
-                    />
-                    <OutlineButton
+                  <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
+                    <View style={{ flex: 1 }}>
+                      <Btn
+                        label="Let them in"
+                        onPress={() => dispatch({ type: 'DECIDE_REQUESTER', planId: plan.id, requesterId: q.id, decision: 'in' })}
+                      />
+                    </View>
+                    <Btn
                       label="Not this time"
+                      variant="secondary"
+                      full={false}
                       onPress={() => dispatch({ type: 'DECIDE_REQUESTER', planId: plan.id, requesterId: q.id, decision: 'out' })}
                     />
                   </View>
@@ -150,11 +153,11 @@ export default function PlanManage({ navigation, route }: Props) {
 
         {!archived && (
           <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
-            <OutlineButton label="Archive this plan" onPress={() => dispatch({ type: 'ARCHIVE_PLAN', planId: plan.id })} />
+            <Btn label="Archive this plan" variant="danger" onPress={() => dispatch({ type: 'ARCHIVE_PLAN', planId: plan.id })} />
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -194,6 +197,14 @@ const styles = StyleSheet.create({
     color: colors.faint, marginBottom: 10, paddingHorizontal: 16,
   },
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36 },
+  reviewCard: { backgroundColor: colors.surface, borderRadius: radius.card - 4, padding: 15, gap: 8, ...shadow.card },
+  wordPill: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14,
+  },
+  wordLabel: { color: colors.blushInk, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
+  reviewPrompt: { backgroundColor: colors.ink, borderRadius: radius.inner, padding: 15, alignItems: 'center', marginTop: 18 },
+  reviewPromptText: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 13.5 },
   emptyText: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13.5 },
   list: { paddingHorizontal: 16, gap: 11, marginTop: 22 },
   card: { backgroundColor: colors.surface, borderRadius: radius.card - 2, padding: 17, ...shadow.card },

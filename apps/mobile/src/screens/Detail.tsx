@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow, stripe } from '../theme';
-import { PrimaryButton, OutlineButton, BackPill } from '../components/ui';
+import { BackButton, Btn, UserChip } from '../components/widgets';
 import {
   ACTIVITIES, costModeLabel, GENDER_COLORS, genderIconSymbol, genderRestrictionLabel, HOUSE_RULES,
 } from '../data';
-import { useAppState, useAppDispatch } from '../state';
+import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -16,22 +16,22 @@ export default function Detail({ navigation, route }: Props) {
   const activity = ACTIVITIES.find((a) => a.id === route.params.id) ?? ACTIVITIES[0];
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState('');
   const [showGoing, setShowGoing] = useState(false);
   const sent = state.requested.includes(activity.id);
-  const full = activity.seatsFilled >= activity.seatsTotal;
   const cta = activity.entry === 'open' ? 'Take a seat' : 'Ask to join';
   const ctaNote = activity.entry === 'open'
     ? 'No approval on this one. The chat opens straight away.'
     : `${activity.hostFirst} reads one line and decides. No chat until then.`;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={[stripe(212), styles.hero]}>
-          <View style={{ position: 'absolute', top: 22, left: 18 }}>
-            <BackPill onPress={() => navigation.navigate('Board')} label="← Back" />
+          <View style={{ position: 'absolute', top: insets.top + 2, left: 18 }}>
+            <BackButton onPress={() => navigation.navigate('Board')} />
           </View>
           <View style={styles.slotChip}><Text style={styles.slotLabel}>{activity.slot}</Text></View>
           <View style={styles.timeChip}>
@@ -50,10 +50,8 @@ export default function Detail({ navigation, route }: Props) {
           </View>
 
           <View style={styles.hostCard}>
-            <View style={styles.hostAvatar}><Text style={styles.hostAvatarLabel}>{activity.hostInitials}</Text></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.hostName}>{activity.host}</Text>
-              <Text style={styles.hostSub}>Hosting · {activity.hosted} plans · everyone turned up</Text>
+              <UserChip name={activity.host} initials={activity.hostInitials} size="m" meta={`Hosting · ${activity.hosted} plans · everyone turned up`} />
             </View>
             <View style={styles.verifiedChip}>
               <View style={styles.verifiedDot} />
@@ -105,7 +103,7 @@ export default function Detail({ navigation, route }: Props) {
 
       {!asking && !sent && (
         <View style={styles.bottomIdle}>
-          <PrimaryButton label={cta} onPress={() => setAsking(true)} />
+          <Btn label={cta} onPress={() => setAsking(true)} />
           <Text style={styles.ctaNote}>{ctaNote}</Text>
         </View>
       )}
@@ -122,12 +120,13 @@ export default function Detail({ navigation, route }: Props) {
             style={styles.textarea}
           />
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <PrimaryButton
-              label="Send request"
-              style={{ flex: 1, paddingVertical: 15 }}
-              onPress={() => { dispatch({ type: 'REQUEST_JOIN', id: activity.id }); setAsking(false); }}
-            />
-            <OutlineButton label="Cancel" onPress={() => setAsking(false)} />
+            <View style={{ flex: 1 }}>
+              <Btn
+                label="Send request"
+                onPress={() => { dispatch({ type: 'REQUEST_JOIN', id: activity.id }); setAsking(false); }}
+              />
+            </View>
+            <Btn label="Cancel" variant="secondary" full={false} onPress={() => setAsking(false)} />
           </View>
         </View>
       )}
@@ -140,7 +139,9 @@ export default function Detail({ navigation, route }: Props) {
           <Text style={styles.sentBody}>
             {activity.hostFirst} has people to look at. You'll get a push either way — including if it's a no.
           </Text>
-          <OutlineButton label="Back to the board" onPress={() => navigation.navigate('Board')} style={{ marginTop: 13, borderColor: 'rgba(62,74,55,.25)' }} />
+          <View style={{ marginTop: 13 }}>
+            <Btn label="Back to the board" variant="secondary" onPress={() => navigation.navigate('Board')} />
+          </View>
         </View>
       )}
 
@@ -163,11 +164,11 @@ export default function Detail({ navigation, route }: Props) {
                 </View>
               </View>
             ))}
-            <OutlineButton label="Close" onPress={() => setShowGoing(false)} style={{ marginTop: 8 }} />
+            <View style={{ marginTop: 8 }}><Btn label="Close" variant="secondary" onPress={() => setShowGoing(false)} /></View>
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

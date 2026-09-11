@@ -1,15 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
-import { BackPill, Chip, PrimaryButton, ProgressBars, SectionLabel } from '../components/ui';
+import { Chip, SectionLabel } from '../components/ui';
+import { Btn, Header } from '../components/widgets';
 import {
   COST_MODE_OPTIONS, GENDER_RESTRICTION_OPTIONS, VIBE_TAGS,
   nextSevenDays, formatDateKey,
 } from '../data';
-import { useAppState, useAppDispatch } from '../state';
+import { useAppState, useAppDispatch } from '../store';
 import TimeWheelSheet from '../components/TimeWheelSheet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
@@ -37,15 +37,15 @@ export default function Create({ navigation }: Props) {
   const cta = state.step < 2 ? 'Next' : 'Publish';
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <BackPill
-          onPress={() => (state.step === 0 ? navigation.navigate('MyPlans') : dispatch({ type: 'SET_STEP', step: (state.step - 1) as 0 | 1 | 2 }))}
-        />
-        <ProgressBars total={3} current={state.step} />
-        <Text style={styles.kicker}>Step {state.step + 1} of 3</Text>
-        <Text style={styles.title}>{STEP_TITLES[state.step]}</Text>
-      </View>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={3}
+        stepsCurrent={state.step + 1}
+        eyebrow={`Step ${state.step + 1} of 3`}
+        title={STEP_TITLES[state.step]}
+        onBack={() => (state.step === 0 ? navigation.navigate('MyPlans') : dispatch({ type: 'SET_STEP', step: (state.step - 1) as 0 | 1 | 2 }))}
+      />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4 }}>
         {state.step === 0 && (
@@ -195,9 +195,9 @@ export default function Create({ navigation }: Props) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <PrimaryButton label={cta} onPress={next} style={!canContinue && styles.ctaDisabled} />
+        <Btn label={cta} variant={canContinue ? 'primary' : 'disabled'} onPress={next} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

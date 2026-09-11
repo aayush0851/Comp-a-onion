@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import Slider from '@react-native-community/slider';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
-import { BackPill, OutlineButton, PrimaryButton } from '../components/ui';
+import { Btn, Header } from '../components/widgets';
 import { formatProximityKm, maskPhone, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
-import { useAppDispatch, useAppState } from '../state';
+import { useAppDispatch, useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -60,13 +59,34 @@ export default function Settings({ navigation }: Props) {
   const [nameDraft, setNameDraft] = useState(state.name);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <BackPill onPress={() => navigation.navigate('Profile')} />
-        <Text style={styles.title}>Settings</Text>
-      </View>
+    <View style={styles.screen}>
+      <Header variant="stack" title="Settings" onBack={() => navigation.navigate('Profile')} />
 
-      <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+        <SectionLabel>Safety centre</SectionLabel>
+        <View style={styles.safetyCard}>
+          <Text style={styles.safetyTitle}>Share your evening</Text>
+          <Text style={styles.safetyBody}>Sends a friend the place, the time and who you're meeting. They get a nudge if you don't check in.</Text>
+          <Pressable style={styles.safetyBtn}><Text style={styles.safetyBtnLabel}>Pick a contact</Text></Pressable>
+        </View>
+        <View style={styles.card}>
+          <Row title="Report someone" sub="A person reads it, usually within the hour." />
+          <Row title="Block someone" sub="They stop seeing your plans. No notification." last />
+        </View>
+        <View style={styles.groundRulesCard}>
+          <Text style={styles.sectionLabel}>Ground rules</Text>
+          {[
+            'Everyone here has passed a face check.',
+            'Meet in public. The exact spot only appears once you\'re in.',
+            'Leaving early is always fine, and never counts against you.',
+          ].map((r) => (
+            <View key={r} style={styles.ruleRow}>
+              <View style={styles.ruleCheck}><Text style={styles.ruleCheckLabel}>✓</Text></View>
+              <Text style={styles.ruleText}>{r}</Text>
+            </View>
+          ))}
+        </View>
+
         <SectionLabel>Account</SectionLabel>
         <View style={styles.card}>
           <Row title="Phone number" sub={maskPhone(state.phone)} />
@@ -120,20 +140,16 @@ export default function Settings({ navigation }: Props) {
           <SwitchRow title="Precise location" sub="Off shows your area, not your exact spot" value={preciseLocation} onValueChange={setPreciseLocation} last />
         </View>
 
-        <SectionLabel>Safety & support</SectionLabel>
+        <SectionLabel>Support &amp; legal</SectionLabel>
         <View style={styles.card}>
           <Row title="Report a problem" onPress={() => openLink('https://companion.app/report')} />
-          <Row title="Community guidelines" onPress={() => openLink('https://companion.app/guidelines')} last />
-        </View>
-
-        <SectionLabel>Legal</SectionLabel>
-        <View style={styles.card}>
+          <Row title="Community guidelines" onPress={() => openLink('https://companion.app/guidelines')} />
           <Row title="Terms of service" onPress={() => openLink('https://companion.app/terms')} />
           <Row title="Privacy policy" onPress={() => openLink('https://companion.app/privacy')} last />
         </View>
 
         <View style={{ marginTop: 24, gap: 8 }}>
-          <OutlineButton label="Log out" onPress={() => dispatch({ type: 'LOG_OUT' })} />
+          <Btn label="Log out" variant="secondary" onPress={() => dispatch({ type: 'LOG_OUT' })} />
           <Pressable onPress={() => setShowDelete(true)} style={styles.deleteRow}>
             <Text style={styles.deleteLabel}>Delete account</Text>
           </Pressable>
@@ -152,12 +168,12 @@ export default function Settings({ navigation }: Props) {
               style={styles.input}
               autoFocus
             />
-            <PrimaryButton
-              label="Save"
-              onPress={() => { dispatch({ type: 'SET_NAME', name: nameDraft.trim() }); setShowEditName(false); }}
-              style={{ marginTop: 18 }}
-            />
-            <OutlineButton label="Cancel" onPress={() => setShowEditName(false)} style={{ marginTop: 9 }} />
+            <View style={{ marginTop: 18 }}>
+              <Btn label="Save" onPress={() => { dispatch({ type: 'SET_NAME', name: nameDraft.trim() }); setShowEditName(false); }} />
+            </View>
+            <View style={{ marginTop: 9 }}>
+              <Btn label="Cancel" variant="secondary" onPress={() => setShowEditName(false)} />
+            </View>
           </View>
         </View>
       </Modal>
@@ -169,28 +185,35 @@ export default function Settings({ navigation }: Props) {
             <Text style={styles.sheetBody}>
               This removes your profile, plans, and history for good. Nobody can undo this — including us.
             </Text>
-            <PrimaryButton
-              label="Delete everything"
-              onPress={() => { setShowDelete(false); dispatch({ type: 'LOG_OUT' }); }}
-              style={{ marginTop: 18, backgroundColor: colors.clayPressed }}
-            />
-            <OutlineButton label="Never mind" onPress={() => setShowDelete(false)} style={{ marginTop: 9 }} />
+            <View style={{ marginTop: 18 }}>
+              <Btn label="Delete everything" variant="danger" onPress={() => { setShowDelete(false); dispatch({ type: 'LOG_OUT' }); }} />
+            </View>
+            <View style={{ marginTop: 9 }}>
+              <Btn label="Never mind" variant="secondary" onPress={() => setShowDelete(false)} />
+            </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  header: { padding: 20, paddingTop: 36, paddingBottom: 8 },
-  title: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 26, letterSpacing: -0.6, marginTop: 18 },
-  body: { flex: 1, paddingHorizontal: 20 },
   sectionLabel: {
     fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase',
     color: colors.faint, marginTop: 22, marginBottom: 10,
   },
+  safetyCard: { backgroundColor: colors.ink, borderRadius: radius.inner, padding: 18 },
+  safetyTitle: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 16 },
+  safetyBody: { color: 'rgba(251,246,240,.66)', fontFamily: 'Newsreader_400Regular_Italic', fontSize: 13, lineHeight: 20, marginTop: 6 },
+  safetyBtn: { marginTop: 15, minHeight: 44, borderRadius: 999, backgroundColor: colors.clay, alignItems: 'center', justifyContent: 'center' },
+  safetyBtnLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 13.5 },
+  groundRulesCard: { backgroundColor: colors.surface, borderRadius: radius.inner, padding: 16, marginTop: 10, ...shadow.inner },
+  ruleRow: { flexDirection: 'row', gap: 11, alignItems: 'flex-start', marginTop: 12 },
+  ruleCheck: { width: 18, height: 18, minWidth: 18, borderRadius: 999, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' },
+  ruleCheckLabel: { color: '#fff', fontFamily: 'Figtree_800ExtraBold', fontSize: 10 },
+  ruleText: { flex: 1, fontSize: 13, lineHeight: 19, color: '#453F39' },
   card: { backgroundColor: colors.surface, borderRadius: radius.inner, ...shadow.inner, overflow: 'hidden' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16,

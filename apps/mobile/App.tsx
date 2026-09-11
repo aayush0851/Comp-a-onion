@@ -10,7 +10,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from './src/navigation';
-import { AppProvider, useAppState } from './src/state';
+import { AppProvider, useAppState } from './src/store';
 import { colors } from './src/theme';
 import Signup from './src/screens/Signup';
 import Phone from './src/screens/Phone';
@@ -30,15 +30,22 @@ import MyPlans from './src/screens/MyPlans';
 import PlanManage from './src/screens/PlanManage';
 import RequesterChat from './src/screens/RequesterChat';
 import RequesterProfile from './src/screens/RequesterProfile';
+import MyReviews from './src/screens/MyReviews';
+import EventChats from './src/screens/EventChats';
 import Create from './src/screens/Create';
 import Sent from './src/screens/Sent';
 import Queue from './src/screens/Queue';
 import ChatList from './src/screens/ChatList';
 import Chat from './src/screens/Chat';
 import Profile from './src/screens/Profile';
+import EditProfile from './src/screens/EditProfile';
 import Settings from './src/screens/Settings';
 import Review from './src/screens/Review';
 import Filed from './src/screens/Filed';
+import SearchFilters from './src/screens/SearchFilters';
+import Notifications from './src/screens/Notifications';
+import ReviewDetail from './src/screens/ReviewDetail';
+import ReportReview from './src/screens/ReportReview';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -76,15 +83,22 @@ function RootNavigator() {
             <Stack.Screen name="PlanManage" component={PlanManage} />
             <Stack.Screen name="RequesterChat" component={RequesterChat} />
             <Stack.Screen name="RequesterProfile" component={RequesterProfile} />
+            <Stack.Screen name="MyReviews" component={MyReviews} />
+            <Stack.Screen name="EventChats" component={EventChats} />
             <Stack.Screen name="Create" component={Create} />
             <Stack.Screen name="Sent" component={Sent} />
             <Stack.Screen name="Queue" component={Queue} />
             <Stack.Screen name="ChatList" component={ChatList} />
             <Stack.Screen name="Chat" component={Chat} />
             <Stack.Screen name="Profile" component={Profile} />
+            <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="Review" component={Review} />
             <Stack.Screen name="Filed" component={Filed} />
+            <Stack.Screen name="SearchFilters" component={SearchFilters} />
+            <Stack.Screen name="Notifications" component={Notifications} />
+            <Stack.Screen name="ReviewDetail" component={ReviewDetail} />
+            <Stack.Screen name="ReportReview" component={ReportReview} />
           </>
         )}
       </Stack.Navigator>

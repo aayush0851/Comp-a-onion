@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow } from '../theme';
-import { BackPill } from '../components/ui';
+import { colors, shadow } from '../theme';
+import { Header } from '../components/widgets';
 import { ACTIVITIES } from '../data';
-import { useAppState, useAppDispatch } from '../state';
+import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -19,14 +18,15 @@ export default function Chat({ navigation, route }: Props) {
   const msgs = activity.id === 'ramen' ? state.msgs : [];
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <BackPill onPress={() => navigation.navigate('ChatList')} label="← Chats" />
-        <View style={styles.headerCard}>
-          <Text style={styles.title}>{activity.title}</Text>
-          <Text style={styles.meta}>Hosted by {activity.host} · 19:30 today · 3 going</Text>
-        </View>
-      </View>
+    <View style={styles.screen}>
+      <Header
+        variant="convo"
+        title={activity.title}
+        subtitle={`${activity.seatsFilled} going · ${activity.time} today`}
+        action="Plan"
+        onAction={() => navigation.navigate('Detail', { id: activity.id })}
+        onBack={() => navigation.navigate('ChatList')}
+      />
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24, gap: 13 }}>
         {msgs.length === 0 && (
@@ -67,18 +67,12 @@ export default function Chat({ navigation, route }: Props) {
           <Text style={styles.sendLabel}>Send</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  header: { padding: 20, paddingTop: 36, paddingBottom: 18, backgroundColor: colors.ground },
-  headerCard: {
-    backgroundColor: colors.surface, borderRadius: radius.inner, padding: 16, marginTop: 14, ...shadow.card,
-  },
-  title: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 20, letterSpacing: -0.4 },
-  meta: { color: colors.muted, fontFamily: 'Figtree_500Medium', fontSize: 12, marginTop: 4 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 13, textAlign: 'center' },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3, marginHorizontal: 4 },

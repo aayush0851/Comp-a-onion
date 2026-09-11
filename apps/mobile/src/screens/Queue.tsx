@@ -1,12 +1,10 @@
-import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
-import { BackPill, PrimaryButton, OutlineButton } from '../components/ui';
+import { Btn, Header, UserChip } from '../components/widgets';
 import { QUEUE_SEED } from '../data';
-import { useAppState, useAppDispatch } from '../state';
+import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Queue'>;
 
@@ -16,54 +14,44 @@ export default function Queue({ navigation }: Props) {
   const approved = Object.values(state.decided).filter((d) => d === 'in').length;
   const decidedCount = Object.keys(state.decided).length;
   const sub = decidedCount === 0
-    ? `${QUEUE_SEED.length} people asked for 3 seats. "New here" shows only to you — they don't know it exists.`
+    ? `${QUEUE_SEED.length} people asked for 3 seats. "New here" shows only to you.`
     : `${approved} let in, ${Math.max(0, 3 - approved)} seats left. Everyone you approve lands in the chat straight away.`;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header variant="stack" title="Who's asking" subtitle={sub} onBack={() => navigation.navigate('Board')} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={styles.header}>
-          <BackPill onPress={() => navigation.navigate('Board')} label="← Board" />
-          <Text style={styles.title}>Who's asking</Text>
-          <Text style={styles.sub}>{sub}</Text>
-        </View>
         <View style={styles.list}>
           {QUEUE_SEED.map((q) => {
             const decision = state.decided[q.id];
             return (
-              <View key={q.id} style={[styles.card, decision === 'out' && { backgroundColor: colors.settledDeclineBg }]}>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                  <View style={styles.avatar}><Text style={styles.avatarLabel}>{q.initials}</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                      <Text style={styles.name}>{q.name}</Text>
-                      <View style={styles.verifiedChip}>
-                        <View style={styles.verifiedDot} />
-                        <Text style={styles.verifiedLabel}>verified</Text>
-                      </View>
-                      {q.isNew && (
-                        <View style={styles.newChip}><Text style={styles.newLabel}>New here · only you see this</Text></View>
-                      )}
-                    </View>
-                    <Text style={styles.history}>{q.history}</Text>
-                    <Text style={styles.intro}>{q.intro}</Text>
-                  </View>
-                </View>
+              <View key={q.id} style={[styles.card, decision === 'out' && { backgroundColor: colors.settledDeclineBg, opacity: 0.72 }]}>
+                <UserChip
+                  name={q.name}
+                  initials={q.initials}
+                  tone={q.tone}
+                  rating={q.rating}
+                  count={q.ratingCount}
+                  verified={!q.isNew}
+                  meta={q.isNew ? 'New here · no plans yet' : q.history}
+                />
+                <Text style={styles.intro}>“{q.intro}”</Text>
                 {!decision && (
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-                    <PrimaryButton label="Let them in" style={{ flex: 1, paddingVertical: 14 }} onPress={() => dispatch({ type: 'DECIDE', id: q.id, decision: 'in' })} />
-                    <OutlineButton label="Not this time" onPress={() => dispatch({ type: 'DECIDE', id: q.id, decision: 'out' })} />
+                  <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
+                    <View style={{ flex: 1 }}><Btn label="Let them in" onPress={() => dispatch({ type: 'DECIDE', id: q.id, decision: 'in' })} /></View>
+                    <Btn label="Not this time" variant="secondary" full={false} onPress={() => dispatch({ type: 'DECIDE', id: q.id, decision: 'out' })} />
                   </View>
                 )}
                 {decision === 'in' && (
-                  <View style={[styles.settled, { backgroundColor: colors.sageBg }]}>
+                  <View style={[styles.settled, { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: 'transparent', borderTopWidth: 1, borderTopColor: colors.line, borderRadius: 0, paddingTop: 13, paddingHorizontal: 0 }]}>
+                    <View style={styles.checkDot}><Text style={styles.checkDotLabel}>✓</Text></View>
                     <Text style={[styles.settledLabel, { color: colors.sageInk }]}>In — they've got the chat</Text>
                   </View>
                 )}
                 {decision === 'out' && (
-                  <View style={[styles.settled, { backgroundColor: '#F4EEE7' }]}>
-                    <Text style={[styles.settledLabel, { color: colors.muted }]}>Told them no. No reason given, no drama.</Text>
-                  </View>
+                  <Text style={[styles.settledLabel, { color: colors.muted, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line }]}>
+                    You said no. They aren't told who else got in.
+                  </Text>
                 )}
               </View>
             );
@@ -71,9 +59,9 @@ export default function Queue({ navigation }: Props) {
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <PrimaryButton label="Open the group chat" dark onPress={() => navigation.navigate('Chat', { id: 'ramen' })} />
+        <Btn label="Open the group chat" variant="dark" onPress={() => navigation.navigate('Chat', { id: 'ramen' })} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -93,8 +81,10 @@ const styles = StyleSheet.create({
   newChip: { backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 9 },
   newLabel: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 10 },
   history: { color: colors.faint, fontFamily: 'Figtree_500Medium', fontSize: 11.5, marginTop: 6 },
-  intro: { color: colors.ink, fontFamily: 'Figtree_400Regular', fontSize: 13.5, lineHeight: 20, marginTop: 9 },
+  intro: { color: colors.ink, fontFamily: 'Newsreader_400Regular_Italic', fontSize: 13.5, lineHeight: 20, marginTop: 11 },
   settled: { marginTop: 13, borderRadius: 14, padding: 11 },
   settledLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, lineHeight: 17 },
+  checkDot: { width: 18, height: 18, borderRadius: 999, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' },
+  checkDotLabel: { color: '#fff', fontFamily: 'Figtree_800ExtraBold', fontSize: 10 },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: 'rgba(251,246,240,.95)' },
 });

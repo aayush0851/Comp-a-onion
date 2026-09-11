@@ -1,18 +1,18 @@
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
-import { PrimaryButton, OutlineButton } from '../components/ui';
+import { Btn } from '../components/widgets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sent'>;
 
 export default function Sent({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
       <View style={[styles.blob, { top: -60, left: -80, width: 260, height: 260, backgroundColor: colors.blush }]} />
-      <View style={styles.body}>
+      <View style={[styles.body, { paddingTop: insets.top + 44 }]}>
         <Text style={styles.kicker}>It's out there</Text>
         <Text style={styles.title}>Ramen, then walk it off</Text>
         <View style={styles.statsRow}>
@@ -26,13 +26,13 @@ export default function Sent({ navigation }: Props) {
           </View>
         </View>
         <Text style={styles.body1}>
-          You said approval required, so nobody's in yet. Have a look at who's asking — and you can say no without saying anything.
+          You said approval required, so nobody's in yet. Have a look at who's asking — you can say no without saying anything.
         </Text>
         <View style={{ flex: 1 }} />
-        <PrimaryButton label="See who's asking" onPress={() => navigation.navigate('Queue')} />
-        <OutlineButton label="Later" onPress={() => navigation.navigate('Board')} style={{ marginTop: 9 }} />
+        <Btn label="See who's asking" onPress={() => navigation.navigate('Queue')} />
+        <View style={{ marginTop: 9 }}><Btn label="Later" variant="ghost" onPress={() => navigation.navigate('Board')} /></View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 export const colors = {
   ground: '#FBF6F0',
   surface: '#FFFFFF',
@@ -37,8 +39,6 @@ export const radius = {
   pill: 999,
 };
 
-export const space = [4, 6, 7, 9, 11, 13, 14, 16, 18, 20, 22];
-
 export const shadow = {
   card: { shadowColor: '#2E2A26', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   inner: { shadowColor: '#2E2A26', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
@@ -52,3 +52,31 @@ export const stripe = (h: number) => ({
   backgroundColor: colors.stripeA,
   overflow: 'hidden' as const,
 });
+
+export type Tone = 'peach' | 'sage' | 'sand';
+
+export const tones: Record<Tone, { bg: string; fg: string }> = {
+  peach: { bg: '#F6E4DA', fg: '#A6512F' },
+  sage: { bg: '#E8EDE3', fg: '#5C6B52' },
+  sand: { bg: '#EFE6DC', fg: '#5C534B' },
+};
+
+export const badgeTones: Record<'light' | 'primary' | 'sage' | 'dark', { bg: string; fg: string }> = {
+  light: { bg: 'rgba(255,255,255,.92)', fg: '#5C534B' },
+  primary: { bg: '#C96F4A', fg: '#FFFFFF' },
+  sage: { bg: '#7A8B6F', fg: '#FFFFFF' },
+  dark: { bg: '#2E2A26', fg: '#FBF6F0' },
+};
+
+// Five-step type scale from the Companion design system.
+export const scale: Record<string, TextStyle> = {
+  display: { fontFamily: 'Figtree_700Bold', fontSize: 28, lineHeight: 33, letterSpacing: -0.7, color: colors.ink },
+  card: { fontFamily: 'Figtree_700Bold', fontSize: 21, lineHeight: 25, letterSpacing: -0.45, color: colors.ink },
+  inline: { fontFamily: 'Figtree_700Bold', fontSize: 17, lineHeight: 20, letterSpacing: -0.3, color: colors.ink },
+  body: { fontFamily: 'Figtree_400Regular', fontSize: 13.5, lineHeight: 20, color: '#453F39' },
+  label: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.ink },
+  micro: { fontFamily: 'Figtree_700Bold', fontSize: 8.5, letterSpacing: 0.7, color: colors.muted },
+  eyebrow: { fontFamily: 'Figtree_700Bold', fontSize: 11, letterSpacing: 0.8, color: colors.clayPressed, textTransform: 'uppercase' },
+  accent: { fontFamily: 'Newsreader_400Regular_Italic', fontSize: 14.5, lineHeight: 20, color: colors.muted },
+  meta: { fontFamily: 'Figtree_500Medium', fontSize: 12, color: colors.muted },
+};

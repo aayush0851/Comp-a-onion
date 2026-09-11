@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius } from '../theme';
-import { OnboardingHeader, PrimaryButton } from '../components/ui';
-import { useAppDispatch, useAppState } from '../state';
+import { Btn, Header } from '../components/widgets';
+import { useAppDispatch, useAppState } from '../store';
 import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Highlights'>;
 
 const SLOTS = 6;
+const GRID_COLUMNS = 3;
+const GRID_GAP = 10;
+const BODY_PADDING = 20;
+const SLOT_SIZE = (Dimensions.get('window').width - BODY_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 
 export default function Highlights({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const isEdit = route.params?.mode === 'edit';
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -39,16 +44,16 @@ export default function Highlights({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={isEdit ? undefined : ONBOARDING_STEPS}
+        stepsCurrent={isEdit ? undefined : 8}
+        title="Show a bit of your personality"
+        subtitle="5–10s clips or photos — you doing the thing you're actually into. Up to six."
+        onBack={() => navigation.goBack()}
+      />
       <View style={styles.body}>
-        <OnboardingHeader
-          onBack={() => navigation.goBack()}
-          step={isEdit ? undefined : 5}
-          totalSteps={isEdit ? undefined : ONBOARDING_STEPS}
-          title="Show a bit of your personality"
-          subtitle="5-10s clips or photos — you doing the thing you're actually into. Up to six."
-        />
-
         <View style={styles.grid}>
           {Array.from({ length: SLOTS }).map((_, i) => {
             const item = state.highlights[i];
@@ -77,45 +82,38 @@ export default function Highlights({ navigation, route }: Props) {
             );
           })}
         </View>
-
         {!!error && <Text style={styles.error}>{error}</Text>}
-
-        <View style={{ flex: 1 }} />
-        <PrimaryButton
-          label={isEdit ? 'Save' : 'Continue'}
-          onPress={() => canContinue && (isEdit ? navigation.goBack() : navigation.navigate('Verify'))}
-          style={[styles.cta, !canContinue && styles.ctaDisabled]}
+      </View>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
+        <Btn
+          label={isEdit ? 'Save' : canContinue ? 'Continue' : 'Skip for now'}
+          variant={canContinue ? 'primary' : 'secondary'}
+          onPress={() => (isEdit ? navigation.goBack() : navigation.navigate('Verify'))}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const GRID_COLUMNS = 3;
-const GRID_GAP = 12;
-const BODY_PADDING = 22;
-const SLOT_SIZE = (Dimensions.get('window').width - BODY_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  body: { flex: 1, padding: 22, paddingTop: 36, paddingBottom: 34 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 12, marginTop: 26 },
+  body: { paddingHorizontal: 20, paddingTop: 8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: GRID_GAP, rowGap: GRID_GAP },
   slot: { width: SLOT_SIZE, height: SLOT_SIZE },
   thumbWrap: { width: '100%', height: '100%', borderRadius: radius.tile, overflow: 'hidden' },
   addSlot: {
     width: SLOT_SIZE, height: SLOT_SIZE, borderRadius: radius.tile, borderWidth: 1.5, borderColor: colors.borderSoft,
     borderStyle: 'dashed', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
   },
-  addIcon: { color: colors.faint, fontFamily: 'Figtree_600SemiBold', fontSize: 26 },
+  addIcon: { color: '#C3B8AD', fontFamily: 'Figtree_700Bold', fontSize: 20 },
   thumb: { width: '100%', height: '100%', backgroundColor: colors.surface },
   videoThumb: { backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   playIcon: { color: '#fff', fontSize: 20 },
   removeBadge: {
-    position: 'absolute', top: -7, right: -7, width: 22, height: 22, borderRadius: 11,
-    backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 999,
+    backgroundColor: 'rgba(46,42,38,.75)', alignItems: 'center', justifyContent: 'center',
   },
-  removeLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 13, lineHeight: 15 },
+  removeLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 12, lineHeight: 14 },
   error: { marginTop: 16, color: colors.clayPressed, fontFamily: 'Figtree_500Medium', fontSize: 12.5 },
-  cta: { marginTop: 20 },
-  ctaDisabled: { opacity: 0.45 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 16 },
 });

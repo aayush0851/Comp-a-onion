@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
-import { BackPill, PrimaryButton, text } from '../components/ui';
-import { maskPhone } from '../data';
-import { useAppDispatch, useAppState } from '../state';
+import { Btn, Header } from '../components/widgets';
+import { maskPhone, ONBOARDING_STEPS } from '../data';
+import { useAppDispatch, useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Otp'>;
 
@@ -40,6 +40,7 @@ function OtpBoxes({ value, onChangeText }: { value: string; onChangeText: (t: st
 }
 
 export default function Otp({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [code, setCode] = useState('');
@@ -53,52 +54,44 @@ export default function Otp({ navigation }: Props) {
   }, [seconds]);
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={ONBOARDING_STEPS}
+        stepsCurrent={2}
+        title="Enter the code."
+        subtitle={`We sent six digits to ${maskPhone(state.phone)}.`}
+        onBack={() => navigation.navigate('Phone')}
+      />
       <View style={styles.body}>
-        <BackPill onPress={() => navigation.navigate('Phone')} />
-        <Text style={[text.title28, { marginTop: 26 }]}>Enter the code.</Text>
-        <Text style={[text.body, { marginTop: 11 }]}>
-          We sent six digits to {maskPhone(state.phone)}.
-        </Text>
-
-        <View style={{ marginTop: 26 }}>
-          <OtpBoxes value={code} onChangeText={setCode} />
-        </View>
-
+        <OtpBoxes value={code} onChangeText={setCode} />
         <Text
           onPress={() => seconds === 0 && setSeconds(RESEND_SECONDS)}
           style={[styles.resend, seconds > 0 && styles.resendDisabled]}
         >
           {seconds > 0 ? `Resend code in 0:${seconds.toString().padStart(2, '0')}` : 'Resend code'}
         </Text>
-
-        <View style={{ flex: 1 }} />
-        <PrimaryButton
-          label="Verify"
-          onPress={() => canVerify && dispatch({ type: 'AUTH_SUCCESS' })}
-          style={[styles.cta, !canVerify && styles.ctaDisabled]}
-        />
       </View>
-    </SafeAreaView>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
+        <Btn label="Verify" variant={canVerify ? 'primary' : 'disabled'} onPress={() => canVerify && dispatch({ type: 'AUTH_SUCCESS' })} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  body: { flex: 1, padding: 22, paddingTop: 36, paddingBottom: 34 },
+  body: { paddingHorizontal: 20, paddingTop: 8 },
   hiddenInput: { position: 'absolute', inset: 0, opacity: 0 },
-  boxRow: { flexDirection: 'row', gap: 10 },
+  boxRow: { flexDirection: 'row', gap: 8 },
   box: {
-    width: 46, height: 56, borderRadius: radius.tile, borderWidth: 1.5, borderColor: colors.borderSoft,
+    flex: 1, aspectRatio: 1, borderRadius: radius.tile, borderWidth: 1.5, borderColor: colors.borderSoft,
     backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.chip,
   },
-  boxFilled: { borderColor: colors.clay, backgroundColor: colors.blush },
+  boxFilled: { borderColor: colors.clay, backgroundColor: colors.surface },
   boxActive: { borderColor: colors.clayPressed },
-  boxLabel: { fontFamily: 'Figtree_700Bold', fontSize: 20, color: colors.ink },
-  resend: {
-    marginTop: 18, color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 13,
-  },
-  resendDisabled: { color: colors.faint },
-  cta: { marginTop: 20 },
-  ctaDisabled: { opacity: 0.45 },
+  boxLabel: { fontFamily: 'Figtree_700Bold', fontSize: 24, color: colors.ink },
+  resend: { marginTop: 18, color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 13 },
+  resendDisabled: { color: colors.muted },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 16 },
 });

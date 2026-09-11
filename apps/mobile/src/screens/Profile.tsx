@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow } from '../theme';
-import { Chip, OutlineButton, PencilIcon, UploadIcon, text } from '../components/ui';
-import {
-  PROFILE_HISTORY, PROFILE_WORDS, TABS, VIBE_TAGS,
-} from '../data';
-import { useAppDispatch, useAppState } from '../state';
+import { colors, radius, scale, shadow } from '../theme';
+import { Chip, OutlineButton, PencilIcon, UploadIcon } from '../components/ui';
+import { Header, Stars, TabBar } from '../components/widgets';
+import { RECEIVED_REVIEWS, VIBE_TAGS } from '../data';
+import { myAverageRating, pendingReviewPlans, useAppDispatch, useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -18,6 +16,10 @@ export default function Profile({ navigation }: Props) {
   const dispatch = useAppDispatch();
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
   const [editingVibe, setEditingVibe] = useState(false);
+  const displayName = state.name.trim() || 'You';
+  const initials = state.name.trim() ? state.name.trim().slice(0, 2).toUpperCase() : 'YO';
+  const pending = pendingReviewPlans(state);
+  const rating = myAverageRating();
 
   const pick = async (source: 'camera' | 'library') => {
     setShowPhotoSheet(false);
@@ -35,39 +37,65 @@ export default function Profile({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 90 }}>
-        <View style={styles.header}>
+    <View style={styles.screen}>
+      <Header
+        variant="home"
+        title={displayName}
+        subtitle="Joined March · SoMa"
+        action="Edit"
+        onAction={() => navigation.navigate('EditProfile')}
+      />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
           <View style={styles.avatarWrap}>
             {state.profilePhoto ? (
               <Image source={{ uri: state.profilePhoto }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}><Text style={styles.avatarLabel}>YO</Text></View>
+              <View style={[styles.avatar, styles.avatarPlaceholder]}><Text style={styles.avatarLabel}>{initials}</Text></View>
             )}
             <Pressable onPress={() => setShowPhotoSheet(true)} style={styles.avatarEditBadge}>
               <UploadIcon size={13} color="#fff" />
             </Pressable>
           </View>
-
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>You</Text>
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeIcon}>✓</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statTile}>
+              <Text style={styles.statNum}>{state.publishedPlans.length}</Text>
+              <Text style={styles.statLabel}>plans</Text>
+            </View>
+            <View style={styles.statTile}>
+              <Text style={styles.statNum}>{state.publishedPlans.length}</Text>
+              <Text style={styles.statLabel}>hosted</Text>
+            </View>
+            <View style={styles.statTile}>
+              <Text style={[styles.statNum, { color: colors.clayPressed }]}>{rating.toFixed(1)}</Text>
+              <Text style={styles.statLabel}>rating</Text>
             </View>
           </View>
-
         </View>
 
-        <View style={styles.statsRow}>
-          <Pressable onPress={() => navigation.navigate('Highlights', { mode: 'edit' })} style={[styles.statCard, styles.editButtonRow]}>
-            <Text style={styles.editButtonLabel}>Edit highlights</Text>
-            <PencilIcon size={13} color={colors.ink} />
-          </Pressable>
+        <Pressable style={styles.card} onPress={() => navigation.navigate('MyReviews')}>
+          <View style={{ flex: 1 }}>
+            <Text style={[scale.inline, { fontSize: 14.5 }]}>Ratings & feedback</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 }}>
+              <Stars value={rating} size="s" showValue={false} />
+              <Text style={styles.cardMeta}>{RECEIVED_REVIEWS.length} ratings</Text>
+            </View>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.label}>Edit highlights</Text>
+            <Pressable onPress={() => navigation.navigate('Highlights', { mode: 'edit' })}>
+              <PencilIcon size={13} color={colors.ink} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>What I'm up for</Text>
+            <Text style={styles.label}>What I'm up for</Text>
             <Pressable onPress={() => setEditingVibe((v) => !v)}>
               <Text style={styles.editLink}>{editingVibe ? 'Done' : 'Edit'}</Text>
             </Pressable>
@@ -78,75 +106,36 @@ export default function Profile({ navigation }: Props) {
             )) : state.vibeTags.length > 0 ? state.vibeTags.map((t) => (
               <View key={t} style={styles.outlinePill}><Text style={styles.outlinePillLabel}>{t}</Text></View>
             )) : (
-              <Text style={styles.rowSub}>Nothing yet — tap Edit to add a few.</Text>
+              <Text style={styles.cardMeta}>Nothing yet — tap Edit to add a few.</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Showed up for</Text>
-          <View style={styles.card}>
-            {PROFILE_HISTORY.map((h, i) => (
-              <View key={h.title} style={[styles.historyRow, i === PROFILE_HISTORY.length - 1 && { borderBottomWidth: 0 }]}>
-                <Text style={styles.historyTitle}>{h.title}</Text>
-                <Text style={styles.historyDate}>{h.date}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>What people say about you</Text>
-          <View style={[styles.card, { padding: 10 }]}>
-            {PROFILE_WORDS.map((w) => (
-              <View key={w.label} style={styles.wordPill}>
-                <Text style={styles.wordLabel}>{w.label}</Text>
-                <Text style={styles.wordCount}>{w.count}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.footnote}>Words only, and only once three people have said the same thing. No score, no stars, no ranking against anyone else.</Text>
-        </View>
-
-        <Text style={[text.aside, { paddingHorizontal: 20, marginTop: 20 }]}>
-          Setups get scored. People get described. That asymmetry is the whole point.
-        </Text>
-
-        <Pressable style={styles.reviewCard} onPress={() => navigation.navigate('Review')}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.reviewTitle}>Two reviews waiting</Text>
-            <Text style={styles.reviewSub}>Last night at Marufuku — the setup and the three of them</Text>
-          </View>
-          <Text style={styles.reviewArrow}>→</Text>
-        </Pressable>
-
-        <View style={[styles.statsRow, { marginTop: 22 }]}>
-          <Pressable onPress={() => navigation.navigate('Settings')} style={[styles.statCard, styles.editButtonRow]}>
-            <Text style={styles.editButtonLabel}>Settings</Text>
-            <Text style={styles.settingsIcon}>⚙︎</Text>
+        {pending.length > 0 && (
+          <Pressable style={styles.reviewBanner} onPress={() => navigation.navigate('Review', { planId: pending[0].id })}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewTitle}>{pending.length > 1 ? `${pending.length} reviews waiting` : 'A review is waiting'}</Text>
+              <Text style={styles.reviewSub}>{pending[0].title} — the setup and who showed up</Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.clay }]}>›</Text>
           </Pressable>
-        </View>
+        )}
+
+        <Pressable onPress={() => navigation.navigate('Settings')} style={styles.settingsLink}>
+          <Text style={styles.settingsLinkLabel}>Settings</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
       </ScrollView>
 
-      <View style={styles.tabBar}>
-        {TABS.map((t) => {
-          const active = t === 'Me';
-          return (
-            <Pressable
-              key={t}
-              onPress={() => {
-                if (t === 'Plans') navigation.navigate('MyPlans');
-                else if (t === 'Chats') navigation.navigate('ChatList');
-                else if (t === 'Me') navigation.navigate('Profile');
-                else navigation.navigate('Board');
-              }}
-              style={[styles.tabPill, active ? { backgroundColor: colors.ink } : { backgroundColor: 'transparent' }]}
-            >
-              <Text style={[styles.tabLabel, { color: active ? colors.ground : colors.muted }]}>{t}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <TabBar
+        active="me"
+        unread={false}
+        onPress={(key) => {
+          if (key === 'plans') navigation.navigate('MyPlans');
+          else if (key === 'chats') navigation.navigate('ChatList');
+          else if (key === 'explore') navigation.navigate('Board');
+        }}
+      />
 
       <Modal visible={showPhotoSheet} transparent animationType="fade" onRequestClose={() => setShowPhotoSheet(false)}>
         <Pressable style={styles.backdrop} onPress={() => setShowPhotoSheet(false)}>
@@ -162,62 +151,39 @@ export default function Profile({ navigation }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  header: { padding: 20, paddingTop: 36, alignItems: 'center' },
-  settingsIcon: { fontSize: 15, color: colors.ink },
-  avatarWrap: { marginTop: 18 },
-  avatar: { width: 92, height: 92, borderRadius: 46, borderWidth: 1.5, borderColor: colors.clay },
-  avatarPlaceholder: { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.card },
-  avatarLabel: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 26 },
+  avatarWrap: {},
+  avatar: { width: 74, height: 74, borderRadius: 999, borderWidth: 1.5, borderColor: colors.clay },
+  avatarPlaceholder: { backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  avatarLabel: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 22 },
   avatarEditBadge: {
-    position: 'absolute', right: -2, bottom: -2, width: 32, height: 32, borderRadius: 16,
+    position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14,
     backgroundColor: colors.clay, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: colors.ground,
+    borderWidth: 2, borderColor: colors.ground,
   },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 14 },
-  name: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 26, letterSpacing: -0.6 },
-  verifiedBadge: { width: 21, height: 21, borderRadius: 11, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' },
-  verifiedBadgeIcon: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 11 },
-  editButtonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  editButtonLabel: { color: colors.ink, fontFamily: 'Figtree_600SemiBold', fontSize: 13, textAlign: 'center' },
-  statsRow: { flexDirection: 'row', gap: 9, paddingHorizontal: 20, marginTop: 18 },
-  statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.inner, padding: 15, ...shadow.inner },
-  statNum: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 26, letterSpacing: -0.6 },
-  statLabel: { color: colors.muted, fontFamily: 'Figtree_500Medium', fontSize: 11.5, marginTop: 6 },
-  section: { paddingHorizontal: 20, marginTop: 22 },
+  statsRow: { flex: 1, flexDirection: 'row', gap: 9 },
+  statTile: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 13, alignItems: 'center', ...shadow.inner },
+  statNum: { fontFamily: 'Figtree_800ExtraBold', fontSize: 21, letterSpacing: -0.6, color: colors.ink },
+  statLabel: { fontSize: 10.5, color: colors.muted, marginTop: 2 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 20, padding: 15, ...shadow.inner },
+  cardMeta: { fontSize: 12, color: colors.muted },
+  chevron: { fontFamily: 'Figtree_700Bold', fontSize: 16, color: '#C3B8AD' },
+  label: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.faint },
+  section: {},
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.faint, marginBottom: 10 },
   editLink: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 12 },
-  rowSub: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 12.5 },
   outlinePill: { borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 13 },
   outlinePillLabel: { color: colors.inkSecondary, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.inner, ...shadow.inner, overflow: 'hidden' },
-  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: colors.lineCard },
-  historyTitle: { flex: 1, color: colors.ink, fontFamily: 'Figtree_500Medium', fontSize: 13.5 },
-  historyDate: { color: colors.faint, fontFamily: 'Figtree_500Medium', fontSize: 11.5 },
-  wordPill: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: colors.blush, borderRadius: 999, padding: 12, marginBottom: 6 },
-  wordLabel: { color: colors.blushInk, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
-  wordCount: { color: colors.faint, fontFamily: 'Figtree_500Medium', fontSize: 11.5 },
-  footnote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 12, lineHeight: 18, marginTop: 8 },
-  reviewCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: radius.inner + 2,
-    padding: 17, marginHorizontal: 20, marginTop: 16,
-  },
+  reviewBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 20, padding: 17 },
   reviewTitle: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 15 },
   reviewSub: { color: 'rgba(251,246,240,.6)', fontFamily: 'Figtree_400Regular', fontSize: 12.5, marginTop: 4 },
-  reviewArrow: { color: colors.clay, fontFamily: 'Figtree_700Bold', fontSize: 18, marginLeft: 10 },
-  tabBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(251,246,240,.94)',
-    borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: 18, paddingBottom: 24,
-  },
-  tabPill: { borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
-  tabLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
+  settingsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  settingsLinkLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 13.5, color: colors.inkSecondary },
   backdrop: { flex: 1, backgroundColor: 'rgba(46,42,38,0.45)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,

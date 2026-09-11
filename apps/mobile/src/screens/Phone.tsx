@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius } from '../theme';
-import { BackPill, PrimaryButton, text } from '../components/ui';
-import { useAppDispatch } from '../state';
+import { Btn, Header } from '../components/widgets';
+import { ONBOARDING_STEPS } from '../data';
+import { useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Phone'>;
 
 export default function Phone({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const [digits, setDigits] = useState('');
   const canContinue = digits.length === 10;
@@ -21,17 +23,19 @@ export default function Phone({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={ONBOARDING_STEPS}
+        stepsCurrent={1}
+        title="What's your number?"
+        subtitle="We'll text you a code. Nobody sees this number — not even people you meet."
+        onBack={() => navigation.navigate('Signup')}
+      />
       <View style={styles.body}>
-        <BackPill onPress={() => navigation.navigate('Signup')} />
-        <Text style={[text.title28, { marginTop: 26 }]}>What's your number?</Text>
-        <Text style={[text.body, { marginTop: 11 }]}>
-          We'll text you a code. Nobody sees this number — not even people you meet.
-        </Text>
-
         <View style={styles.inputRow}>
           <View style={styles.prefix}>
-            <Text style={styles.prefixLabel}>🇮🇳 +91</Text>
+            <Text style={styles.prefixLabel}>+91</Text>
           </View>
           <TextInput
             value={digits}
@@ -43,25 +47,28 @@ export default function Phone({ navigation }: Props) {
             style={styles.input}
           />
         </View>
-
-        <View style={{ flex: 1 }} />
-        <PrimaryButton label="Send code" onPress={submit} style={[styles.cta, !canContinue && styles.ctaDisabled]} />
       </View>
-    </SafeAreaView>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
+        <Btn label="Send code" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  body: { flex: 1, padding: 22, paddingTop: 36, paddingBottom: 34 },
+  body: { paddingHorizontal: 20, paddingTop: 8 },
   inputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 26,
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.inner,
-    backgroundColor: colors.surface, paddingHorizontal: 6,
+    flexDirection: 'row', alignItems: 'stretch', gap: 10,
   },
-  prefix: { paddingVertical: 16, paddingHorizontal: 10, borderRightWidth: 1, borderRightColor: colors.line },
-  prefixLabel: { color: colors.ink, fontFamily: 'Figtree_600SemiBold', fontSize: 15 },
-  input: { flex: 1, paddingVertical: 16, fontFamily: 'Figtree_500Medium', fontSize: 16, color: colors.ink, letterSpacing: 0.4 },
-  cta: { marginTop: 20 },
-  ctaDisabled: { opacity: 0.45 },
+  prefix: {
+    width: 84, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.tile,
+    minHeight: 56, alignItems: 'center', justifyContent: 'center',
+  },
+  prefixLabel: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 16 },
+  input: {
+    flex: 1, borderWidth: 1.5, borderColor: colors.clay, backgroundColor: colors.surface, borderRadius: radius.tile,
+    minHeight: 56, paddingHorizontal: 16, fontFamily: 'Figtree_600SemiBold', fontSize: 16, color: colors.ink, letterSpacing: 0.3,
+  },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 16 },
 });

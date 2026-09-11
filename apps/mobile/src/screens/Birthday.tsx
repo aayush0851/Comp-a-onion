@@ -1,11 +1,11 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius } from '../theme';
-import { OnboardingHeader, PrimaryButton } from '../components/ui';
-import { useAppState, useAppDispatch } from '../state';
+import { Btn, Header } from '../components/widgets';
+import { useAppState, useAppDispatch } from '../store';
 import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Birthday'>;
@@ -19,6 +19,7 @@ function calcAge(day: number, month: number, year: number): number {
 }
 
 export default function Birthday({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const monthRef = useRef<TextInput>(null);
@@ -38,15 +39,16 @@ export default function Birthday({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={ONBOARDING_STEPS}
+        stepsCurrent={4}
+        title="When's your birthday?"
+        subtitle="You need to be 18 or over. This never appears on your profile."
+        onBack={() => navigation.navigate('Name')}
+      />
       <View style={styles.body}>
-        <OnboardingHeader
-          onBack={() => navigation.navigate('Name')}
-          step={1}
-          totalSteps={ONBOARDING_STEPS}
-          title="When's your birthday?"
-          subtitle="You need to be 18 or over. This never appears on your profile."
-        />
         <View style={styles.row}>
           <TextInput
             value={day}
@@ -82,23 +84,23 @@ export default function Birthday({ navigation }: Props) {
         {complete && age !== null && age < 18 && (
           <Text style={styles.warning}>You need to be 18 or older to use Companion.</Text>
         )}
-        <View style={{ flex: 1 }} />
-        <PrimaryButton label="Continue" onPress={submit} style={[styles.cta, !canContinue && styles.ctaDisabled]} />
       </View>
-    </SafeAreaView>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
+        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  body: { flex: 1, padding: 22, paddingTop: 36, paddingBottom: 34 },
-  row: { flexDirection: 'row', gap: 10, marginTop: 26 },
+  body: { paddingHorizontal: 20, paddingTop: 8 },
+  row: { flexDirection: 'row', gap: 10 },
   input: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.inner,
-    backgroundColor: colors.surface, paddingVertical: 16, textAlign: 'center',
-    fontFamily: 'Figtree_600SemiBold', fontSize: 18, color: colors.ink,
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.tile,
+    backgroundColor: colors.surface, minHeight: 56, textAlign: 'center',
+    fontFamily: 'Figtree_600SemiBold', fontSize: 16, color: colors.ink,
   },
   warning: { marginTop: 12, color: colors.clayPressed, fontFamily: 'Figtree_500Medium', fontSize: 12.5 },
-  cta: { marginTop: 20 },
-  ctaDisabled: { opacity: 0.45 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 16 },
 });

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { Feather } from '@expo/vector-icons';
 import { colors, shadow } from '../theme';
-import { useAppState, useAppDispatch } from '../state';
+import { Header } from '../components/widgets';
+import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterChat'>;
 
@@ -17,30 +17,27 @@ export default function RequesterChat({ navigation, route }: Props) {
   const msgs = state.requesterMsgs[requesterId] ?? [];
   const plan = state.publishedPlans.find((p) => p.id === planId);
   const requester = plan?.requesters.find((r) => r.id === requesterId);
+  const subtitle = requester?.rating
+    ? `★ ${requester.rating.toFixed(1)} · ${requester.ratingCount} plans · tap for profile`
+    : 'tap for profile';
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.headerCard}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Pressable onPress={() => navigation.navigate('PlanManage', { id: planId })} hitSlop={10}>
-            <Text style={styles.backArrow}>←</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('RequesterProfile', { planId, requesterId })}>
-            <View style={styles.avatar}><Text style={styles.avatarLabel}>{requester?.initials ?? name[0]}</Text></View>
-          </Pressable>
-          <View>
-            <Pressable onPress={() => navigation.navigate('RequesterProfile', { planId, requesterId })}>
-              <Text style={styles.title}>{name}</Text>
-            </Pressable>
-            {!!plan && (
-              <Pressable onPress={() => navigation.navigate('PlanManage', { id: planId })} style={styles.planRow}>
-                <Text style={styles.planLabel}>{plan.title}</Text>
-                <Text style={styles.planGoto}>›</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </View>
+    <View style={styles.screen}>
+      <Header
+        variant="convo"
+        title={name}
+        subtitle={subtitle}
+        action="Profile"
+        onAction={() => navigation.navigate('RequesterProfile', { planId, requesterId })}
+        onBack={() => navigation.navigate('PlanManage', { id: planId })}
+      />
+
+      {!!plan && (
+        <Pressable onPress={() => navigation.navigate('PlanManage', { id: planId })} style={styles.planRow}>
+          <Text style={styles.planLabel} numberOfLines={1}>{plan.title}</Text>
+          <Text style={styles.planGoto}>›</Text>
+        </Pressable>
+      )}
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24, gap: 13 }}>
         {msgs.length === 0 && (
@@ -73,22 +70,18 @@ export default function RequesterChat({ navigation, route }: Props) {
           <Text style={styles.sendLabel}>Send</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  headerCard: {
-    width: '100%', backgroundColor: colors.surface, padding: 18, ...shadow.card,
+  planRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface,
+    marginHorizontal: 16, marginTop: 12, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14, ...shadow.inner,
   },
-  backArrow: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 22 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.neutralAvatar, alignItems: 'center', justifyContent: 'center' },
-  avatarLabel: { color: colors.inkSecondary, fontFamily: 'Figtree_700Bold', fontSize: 14 },
-  title: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 20, letterSpacing: -0.4 },
-  planRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  planLabel: { color: colors.faint, fontFamily: 'Figtree_500Medium', fontSize: 11.5 },
-  planGoto: { color: colors.faint, fontFamily: 'Figtree_700Bold', fontSize: 14 },
+  planLabel: { flex: 1, color: colors.inkSecondary, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
+  planGoto: { color: colors.faint, fontFamily: 'Figtree_700Bold', fontSize: 15 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 13, textAlign: 'center' },
   bubble: { maxWidth: '80%', paddingVertical: 12, paddingHorizontal: 14, ...shadow.chip },

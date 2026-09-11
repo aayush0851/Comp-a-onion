@@ -1,54 +1,71 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow } from '../theme';
-import { BackPill, Chip, PrimaryButton, ProgressBars, SectionLabel, text } from '../components/ui';
-import { PEOPLE_TAGS, REVIEW_ATTENDEES, SETUP_AXES, SETUP_TAGS, SETUP_WORDS } from '../data';
-import { useAppState, useAppDispatch } from '../state';
+import { colors, radius, scale, shadow } from '../theme';
+import { Chip } from '../components/ui';
+import { Btn, Header } from '../components/widgets';
+import { PEOPLE_TAGS, SETUP_AXES, SETUP_TAGS, SETUP_WORDS } from '../data';
+import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
-const KICKERS = ['Part 1 of 3 · the setup', 'Part 2 of 3 · the people', 'Part 3 of 3 · done'];
-const TITLES = ['How was the plan itself?', 'And the people you met?', "That's everything."];
+const TITLES = ['How did the plan go?', 'And the people who came?', "That's everything."];
 const LEDES = [
-  'This goes back to Priya as a host score, and to the venue. Nobody is being marked out of five yet.',
-  'Private. They never see what you picked — it only ever shows up on their profile as words, once enough people have said the same thing.',
+  'This becomes what people see on the plan once it settles. Nobody is being marked out of five yet.',
+  "She's rating you at the same time. Neither of you sees anything until both are in.",
   'Reviews unlock for everyone at the same time tomorrow morning, so nobody can wait to see yours before writing theirs.',
 ];
 const CTAS = ['Next — the people', 'Next — check it over', 'Submit both reviews'];
+const RATING_WORDS = ['Not great', 'It was okay', 'Fine', 'Good', "Great — I'd go again"];
 
-export default function Review({ navigation }: Props) {
+export default function Review({ navigation, route }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const { planId } = route.params;
+  const plan = state.publishedPlans.find((p) => p.id === planId);
+
+  if (!plan) {
+    return (
+      <View style={styles.screen}>
+        <Header variant="stack" title="Nothing to review" onBack={() => navigation.navigate('Profile')} />
+      </View>
+    );
+  }
+
+  const attendees = plan.requesters.filter((r) => !plan.approvalRequired || plan.decided[r.id] === 'in');
+  const setupScores = state.setupScores[plan.id] ?? {};
+  const setupTags = state.setupTags[plan.id] ?? [];
 
   const next = () => {
     if (state.rvStep < 2) dispatch({ type: 'SET_RV_STEP', step: (state.rvStep + 1) as 0 | 1 | 2 });
-    else { dispatch({ type: 'SET_RV_STEP', step: 0 }); navigation.navigate('Filed'); }
+    else {
+      dispatch({ type: 'SUBMIT_REVIEW', planId: plan.id });
+      dispatch({ type: 'SET_RV_STEP', step: 0 });
+      navigation.navigate('Filed');
+    }
   };
 
-  const peopleWritten = REVIEW_ATTENDEES.filter((a) => (state.peopleTags[a.id]?.length ?? 0) > 0 || state.meetAgain[a.id]).length;
-  const meetAgainCount = Object.values(state.meetAgain).filter(Boolean).length;
+  const peopleWritten = attendees.filter((a) => (state.peopleTags[a.id]?.length ?? 0) > 0 || state.meetAgain[a.id]).length;
+  const meetAgainCount = attendees.filter((a) => state.meetAgain[a.id]).length;
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <BackPill
-          onPress={() => (state.rvStep === 0 ? navigation.navigate('Profile') : dispatch({ type: 'SET_RV_STEP', step: (state.rvStep - 1) as 0 | 1 | 2 }))}
-        />
-        <ProgressBars total={3} current={state.rvStep} />
-        <Text style={styles.kicker}>{KICKERS[state.rvStep]}</Text>
-        <Text style={styles.title}>{TITLES[state.rvStep]}</Text>
-        <Text style={styles.lede}>{LEDES[state.rvStep]}</Text>
-      </View>
+    <View style={styles.screen}>
+      <Header
+        variant="stack"
+        stepsTotal={3}
+        stepsCurrent={state.rvStep + 1}
+        eyebrow={`Part ${state.rvStep + 1} of 3 · ${plan.title}`}
+        title={TITLES[state.rvStep]}
+        subtitle={LEDES[state.rvStep]}
+        onBack={() => (state.rvStep === 0 ? navigation.navigate('Profile') : dispatch({ type: 'SET_RV_STEP', step: (state.rvStep - 1) as 0 | 1 | 2 }))}
+      />
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, gap: 11 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, gap: 11 }}>
         {state.rvStep === 0 && (
           <View>
             <View style={styles.card}>
               {SETUP_AXES.map((ax, i) => {
-                const score = state.setupScores[ax.key] ?? 3;
+                const score = setupScores[ax.key] ?? 3;
                 return (
                   <View key={ax.key} style={[styles.axisRow, i === SETUP_AXES.length - 1 && { borderBottomWidth: 0 }]}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -60,7 +77,7 @@ export default function Review({ navigation }: Props) {
                       {[1, 2, 3, 4, 5].map((n) => (
                         <Pressable
                           key={n}
-                          onPress={() => dispatch({ type: 'SET_SETUP_SCORE', axis: ax.key, score: n })}
+                          onPress={() => dispatch({ type: 'SET_SETUP_SCORE', planId: plan.id, axis: ax.key, score: n })}
                           style={[styles.scoreDot, n <= score && { backgroundColor: colors.clay, borderColor: colors.clay }]}
                         />
                       ))}
@@ -72,7 +89,7 @@ export default function Review({ navigation }: Props) {
             <Text style={[styles.sub, { marginTop: 16 }]}>And in words</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {SETUP_TAGS.map((t) => (
-                <Chip key={t} label={t} selected={state.setupTags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_SETUP_TAG', tag: t })} />
+                <Chip key={t} label={t} selected={setupTags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_SETUP_TAG', planId: plan.id, tag: t })} />
               ))}
             </View>
           </View>
@@ -80,31 +97,52 @@ export default function Review({ navigation }: Props) {
 
         {state.rvStep === 1 && (
           <View style={{ gap: 11 }}>
-            {REVIEW_ATTENDEES.map((a) => {
+            {attendees.map((a) => {
               const tags = state.peopleTags[a.id] ?? [];
               const meet = !!state.meetAgain[a.id];
               const flagged = !!state.flagged[a.id];
+              const rating = state.personRatings[a.id] ?? 0;
+              const note = state.personNotes[a.id] ?? '';
               return (
                 <View key={a.id} style={styles.personCard}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={styles.personAvatar}><Text style={styles.personAvatarLabel}>{a.initials}</Text></View>
                     <Text style={styles.personName}>{a.name}</Text>
                     <View style={{ flex: 1 }} />
-                    <View style={[
-                      styles.roleChip,
-                      a.role === 'Host' ? { backgroundColor: colors.blush } : a.role === 'First plan' ? { backgroundColor: colors.sageBg } : { backgroundColor: '#F4EEE7' },
-                    ]}>
-                      <Text style={[
-                        styles.roleChipLabel,
-                        { color: a.role === 'Host' ? colors.clayPressed : a.role === 'First plan' ? colors.sageInk : colors.muted },
-                      ]}>{a.role}</Text>
-                    </View>
+                    {a.isNew && (
+                      <View style={styles.roleChip}>
+                        <Text style={styles.roleChipLabel}>New here</Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
+
+                  <View style={{ alignItems: 'center', marginTop: 14 }}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Pressable key={n} onPress={() => dispatch({ type: 'SET_PERSON_RATING', personId: a.id, rating: n })} hitSlop={6}>
+                          <Text style={{ fontSize: 30, lineHeight: 34, color: n <= rating ? colors.clay : '#E0D2C4' }}>★</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {rating > 0 && <Text style={styles.ratingWord}>{RATING_WORDS[rating - 1]}</Text>}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>
                     {PEOPLE_TAGS.map((t) => (
                       <Chip key={t} label={t} small selected={tags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_PERSON_TAG', personId: a.id, tag: t })} />
                     ))}
                   </View>
+
+                  <TextInput
+                    value={note}
+                    onChangeText={(v) => dispatch({ type: 'SET_PERSON_NOTE', personId: a.id, note: v.slice(0, 150) })}
+                    placeholder="Anything worth saying? Optional."
+                    placeholderTextColor={colors.faint}
+                    multiline
+                    maxLength={150}
+                    style={styles.noteInput}
+                  />
+
                   <Pressable
                     onPress={() => dispatch({ type: 'TOGGLE_MEET_AGAIN', personId: a.id })}
                     style={[styles.meetToggle, meet ? { backgroundColor: colors.sage, borderColor: colors.sage } : { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -121,6 +159,9 @@ export default function Review({ navigation }: Props) {
                 </View>
               );
             })}
+            {attendees.length === 0 && (
+              <Text style={scale.accent}>Nobody to review for this one.</Text>
+            )}
             <View style={styles.noteCard}>
               <Text style={styles.noteText}>Mutual only: if you both say "would meet again," you both find out. If one of you doesn't, neither of you ever knows.</Text>
             </View>
@@ -131,9 +172,9 @@ export default function Review({ navigation }: Props) {
           <View>
             <View style={styles.card}>
               {[
-                ['Setup review', 'Goes to Priya and the venue'],
-                ['People reviews', `${peopleWritten} of 3 written`],
-                ['Would meet again', `${meetAgainCount} of 3, kept private`],
+                ['Setup review', `Goes to "${plan.title}"`],
+                ['People reviews', `${peopleWritten} of ${attendees.length} written`],
+                ['Would meet again', `${meetAgainCount} of ${attendees.length}, kept private`],
               ].map(([k, v], i) => (
                 <View key={k} style={[styles.summaryRow, i === 2 && { borderBottomWidth: 0 }]}>
                   <Text style={styles.summaryKey}>{k}</Text>
@@ -144,27 +185,23 @@ export default function Review({ navigation }: Props) {
             <View style={styles.publishCard}>
               <Text style={styles.publishTitle}>What actually gets published</Text>
               <Text style={styles.publishBody}>
-                Priya's host scores, updated. Your tags on people, only once three or more people have said the same thing. Nothing you wrote, and no numbers, ever appear next to a person's name.
+                Your star rating and note go straight to their profile. Your tags on people, only once three or more people have said the same thing.
               </Text>
             </View>
-            <Text style={[text.aside, { marginTop: 16 }]}>You'll get theirs at the same time. No editing after that.</Text>
+            <Text style={[scale.accent, { marginTop: 16 }]}>You'll get theirs at the same time. No editing after that.</Text>
           </View>
         )}
       </ScrollView>
 
       <View style={styles.footer}>
-        <PrimaryButton label={CTAS[state.rvStep]} onPress={next} />
+        <Btn label={CTAS[state.rvStep]} onPress={next} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
-  header: { padding: 20, paddingTop: 36, paddingBottom: 14 },
-  kicker: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 11.5, marginTop: 13 },
-  title: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 24, letterSpacing: -0.5, marginTop: 7 },
-  lede: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13, lineHeight: 19, marginTop: 8 },
   card: { backgroundColor: colors.surface, borderRadius: radius.inner, paddingHorizontal: 16, ...shadow.inner },
   axisRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.lineCard },
   axisLabel: { color: colors.ink, fontFamily: 'Figtree_600SemiBold', fontSize: 14 },
@@ -176,8 +213,13 @@ const styles = StyleSheet.create({
   personAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.neutralAvatar, alignItems: 'center', justifyContent: 'center' },
   personAvatarLabel: { color: colors.inkSecondary, fontFamily: 'Figtree_700Bold', fontSize: 12 },
   personName: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 16 },
-  roleChip: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
-  roleChipLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11 },
+  roleChip: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: colors.sageBg },
+  roleChipLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11, color: colors.sageInk },
+  ratingWord: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: colors.clayPressed, marginTop: 9 },
+  noteInput: {
+    marginTop: 12, backgroundColor: colors.ground, borderRadius: 14, padding: 12, minHeight: 56,
+    fontSize: 13, lineHeight: 19, color: colors.ink, textAlignVertical: 'top',
+  },
   meetToggle: { marginTop: 12, borderWidth: 1.5, borderRadius: radius.small, paddingVertical: 13, alignItems: 'center' },
   flagBtn: { marginTop: 8, borderRadius: radius.small, paddingVertical: 10, paddingHorizontal: 4 },
   noteCard: { backgroundColor: colors.sageBg, borderRadius: radius.inner, padding: 15 },
