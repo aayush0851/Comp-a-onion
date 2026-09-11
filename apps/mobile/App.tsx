@@ -1,0 +1,110 @@
+import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  useFonts,
+  Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold, Figtree_800ExtraBold,
+} from '@expo-google-fonts/figtree';
+import { Newsreader_300Light_Italic, Newsreader_400Regular_Italic } from '@expo-google-fonts/newsreader';
+import { View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import type { RootStackParamList } from './src/navigation';
+import { AppProvider, useAppState } from './src/state';
+import { colors } from './src/theme';
+import Signup from './src/screens/Signup';
+import Phone from './src/screens/Phone';
+import Otp from './src/screens/Otp';
+import Name from './src/screens/Name';
+import Birthday from './src/screens/Birthday';
+import Gender from './src/screens/Gender';
+import Vibe from './src/screens/Vibe';
+import ProfilePhoto from './src/screens/ProfilePhoto';
+import Highlights from './src/screens/Highlights';
+import Verify from './src/screens/Verify';
+import SelfieCheck from './src/screens/SelfieCheck';
+import Lock from './src/screens/Lock';
+import Board from './src/screens/Board';
+import Detail from './src/screens/Detail';
+import MyPlans from './src/screens/MyPlans';
+import PlanManage from './src/screens/PlanManage';
+import RequesterChat from './src/screens/RequesterChat';
+import RequesterProfile from './src/screens/RequesterProfile';
+import Create from './src/screens/Create';
+import Sent from './src/screens/Sent';
+import Queue from './src/screens/Queue';
+import ChatList from './src/screens/ChatList';
+import Chat from './src/screens/Chat';
+import Profile from './src/screens/Profile';
+import Settings from './src/screens/Settings';
+import Review from './src/screens/Review';
+import Filed from './src/screens/Filed';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+function RootNavigator() {
+  const state = useAppState();
+
+  if (!state.authReady) return <View style={{ flex: 1, backgroundColor: colors.ground }} />;
+
+  const initialRouteName = !state.isAuthenticated ? 'Signup' : state.onboarded ? 'Board' : 'Name';
+
+  return (
+    <NavigationContainer>
+      <StatusBar style="dark" />
+      <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: false, animation: 'fade' }}>
+        {!state.isAuthenticated ? (
+          <>
+            <Stack.Screen name="Signup" component={Signup} />
+            <Stack.Screen name="Phone" component={Phone} />
+            <Stack.Screen name="Otp" component={Otp} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Name" component={Name} />
+            <Stack.Screen name="Birthday" component={Birthday} />
+            <Stack.Screen name="Gender" component={Gender} />
+            <Stack.Screen name="Vibe" component={Vibe} />
+            <Stack.Screen name="ProfilePhoto" component={ProfilePhoto} />
+            <Stack.Screen name="Highlights" component={Highlights} />
+            <Stack.Screen name="Verify" component={Verify} />
+            <Stack.Screen name="SelfieCheck" component={SelfieCheck} />
+            <Stack.Screen name="Lock" component={Lock} />
+            <Stack.Screen name="Board" component={Board} />
+            <Stack.Screen name="Detail" component={Detail} />
+            <Stack.Screen name="MyPlans" component={MyPlans} />
+            <Stack.Screen name="PlanManage" component={PlanManage} />
+            <Stack.Screen name="RequesterChat" component={RequesterChat} />
+            <Stack.Screen name="RequesterProfile" component={RequesterProfile} />
+            <Stack.Screen name="Create" component={Create} />
+            <Stack.Screen name="Sent" component={Sent} />
+            <Stack.Screen name="Queue" component={Queue} />
+            <Stack.Screen name="ChatList" component={ChatList} />
+            <Stack.Screen name="Chat" component={Chat} />
+            <Stack.Screen name="Profile" component={Profile} />
+            <Stack.Screen name="Settings" component={Settings} />
+            <Stack.Screen name="Review" component={Review} />
+            <Stack.Screen name="Filed" component={Filed} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  const [fontsLoaded] = useFonts({
+    Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold, Figtree_800ExtraBold,
+    Newsreader_300Light_Italic, Newsreader_400Regular_Italic,
+  });
+
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#FBF6F0' }} />;
+
+  return (
+    <SafeAreaProvider>
+      <AppProvider>
+        <RootNavigator />
+      </AppProvider>
+    </SafeAreaProvider>
+  );
+}

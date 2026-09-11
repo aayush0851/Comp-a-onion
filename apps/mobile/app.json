@@ -20,6 +20,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Companion needs access to your photos so you can add a profile picture and a few personality clips."
+        }
+      ],
+      "expo-web-browser"
+    ]
   }
 }
