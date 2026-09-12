@@ -3,7 +3,8 @@ import type { AppState } from '../index';
 import type { OnboardingState } from './schema';
 
 export const onboardingInitialState: OnboardingState = {
-  phone: '',
+  email: '',
+  authProvider: null,
   name: '',
   dob: { day: '', month: '', year: '' },
   gender: null,
@@ -17,8 +18,15 @@ export const onboardingInitialState: OnboardingState = {
 
 export function onboardingReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'SET_PHONE':
-      return { ...state, phone: action.phone };
+    case 'HYDRATE_AUTH':
+      return { ...state, email: action.email, name: action.name, authProvider: action.authProvider };
+    case 'SET_OAUTH_IDENTITY':
+      return {
+        ...state,
+        email: action.email,
+        authProvider: action.provider,
+        name: state.name || action.name,
+      };
     case 'SET_NAME':
       return { ...state, name: action.name };
     case 'SET_DOB':

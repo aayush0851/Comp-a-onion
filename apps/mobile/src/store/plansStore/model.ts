@@ -13,7 +13,7 @@ const emptyDraft = {
   shape: null as Shape,
   size: 4,
   approvalRequired: true,
-  genderRestriction: 'everyone' as GenderRestriction,
+  genderRestriction: 'anyone' as GenderRestriction,
   costMode: null as CostMode | null,
 };
 

@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
 import { Btn, Header } from '../components/widgets';
-import { VERIFY_STEPS, maskPhone } from '../data';
+import { VERIFY_STEPS } from '../data';
 import { useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Verify'>;
@@ -16,7 +16,7 @@ export default function Verify({ navigation }: Props) {
   const [showSkip, setShowSkip] = useState(false);
   const queued = state.selfieStatus === 'queued';
   const steps = VERIFY_STEPS.map((v) => {
-    if (v.key === 'phone') return { ...v, d: maskPhone(state.phone) };
+    if (v.key === 'email') return { ...v, d: state.email };
     if (v.key === 'selfie' && queued) return { ...v, d: "We'll notify you once it's reviewed.", state: 'Queued' };
     return v;
   });
@@ -42,7 +42,13 @@ export default function Verify({ navigation }: Props) {
               <Text style={styles.rowTitle}>{v.t}</Text>
               <Text style={styles.rowDesc}>{v.d}</Text>
             </View>
-            <View style={styles.stateChip}><Text style={styles.stateChipLabel}>{v.state}</Text></View>
+            <Pressable
+              disabled={v.done || queued}
+              onPress={() => navigation.navigate('SelfieCheck')}
+              style={styles.stateChip}
+            >
+              <Text style={styles.stateChipLabel}>{v.state}</Text>
+            </Pressable>
           </View>
         ))}
         <View style={styles.explainer}>

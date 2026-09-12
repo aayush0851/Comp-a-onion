@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.tile,
-    backgroundColor: colors.surface, minHeight: 56, textAlign: 'center',
+    backgroundColor: colors.surface, height: 56, textAlign: 'center', textAlignVertical: 'center',
     fontFamily: 'Figtree_600SemiBold', fontSize: 16, color: colors.ink,
   },
   warning: { marginTop: 12, color: colors.clayPressed, fontFamily: 'Figtree_500Medium', fontSize: 12.5 },

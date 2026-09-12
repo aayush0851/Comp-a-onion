@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius } from '../theme';
 import { Btn, Header } from '../components/widgets';
-import { useAppDispatch } from '../store';
+import { useAppDispatch, useAppState } from '../store';
 import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Name'>;
@@ -13,9 +13,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Name'>;
 export default function Name({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const [name, setName] = useState('');
+  const state = useAppState();
+  const [name, setName] = useState(state.name);
   const canContinue = name.trim().length > 0;
-  const initial = canContinue ? `${name.trim()[0].toUpperCase()}.` : '';
 
   const submit = () => {
     if (!canContinue) return;
@@ -30,7 +30,7 @@ export default function Name({ navigation }: Props) {
         stepsTotal={ONBOARDING_STEPS}
         stepsCurrent={3}
         title="What should people call you?"
-        subtitle="First name and an initial — that's all anyone ever sees."
+        subtitle="Just a first name — that's all anyone ever sees."
       />
       <View style={styles.body}>
         <Text style={styles.label}>First name</Text>
@@ -46,7 +46,7 @@ export default function Name({ navigation }: Props) {
         {canContinue && (
           <View style={styles.confirm}>
             <View style={styles.confirmCheck}><Text style={styles.confirmCheckLabel}>✓</Text></View>
-            <Text style={styles.confirmText}>You'll appear as <Text style={styles.confirmStrong}>{name.trim()} {initial}</Text></Text>
+            <Text style={styles.confirmText}>You'll appear as <Text style={styles.confirmStrong}>{name.trim()}</Text></Text>
           </View>
         )}
       </View>

@@ -1,8 +1,8 @@
-export type GenderRestriction = 'everyone' | 'women' | 'men';
+export type GenderRestriction = 'anyone' | 'women' | 'men';
 export type CostMode = 'host' | 'dutch';
 
 export const GENDER_RESTRICTION_OPTIONS: { key: GenderRestriction; title: string; desc: string }[] = [
-  { key: 'everyone', title: 'Anyone', desc: 'Open to anyone nearby.' },
+  { key: 'anyone', title: 'Anyone', desc: 'Open to anyone nearby.' },
   { key: 'women', title: 'Women only', desc: 'Only women can ask to join.' },
   { key: 'men', title: 'Men only', desc: 'Only men can ask to join.' },
 ];

@@ -40,8 +40,3 @@ export function nextSevenDays(from: Date = new Date()): DateOption[] {
     return { key, label, dateLabel, full: `${weekday}, ${dateLabel}` };
   });
 }
-
-export function maskPhone(digits: string): string {
-  if (digits.length < 10) return '+91 ····· ·····';
-  return `+91 ${digits.slice(0, 5)} ${digits.slice(5, 6)}···${digits.slice(-3)}`;
-}

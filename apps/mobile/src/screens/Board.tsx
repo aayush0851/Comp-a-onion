@@ -61,7 +61,7 @@ export default function Board({ navigation }: Props) {
               dist={c.dist}
               badge={badge}
               badgeTone={c.entry === 'open' && !full ? 'primary' : 'light'}
-              tag={c.genderRestriction !== 'everyone' ? `${c.genderRestriction === 'women' ? 'Women' : 'Men'} only` : null}
+              tag={c.genderRestriction !== 'anyone' ? `${c.genderRestriction === 'women' ? 'Women' : 'Men'} only` : null}
               kind={c.shapeLabel}
               filled={c.seatsFilled}
               total={c.seatsTotal}

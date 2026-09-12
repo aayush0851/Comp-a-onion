@@ -42,15 +42,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(rootReducer, initialState);
 
   useEffect(() => {
-    loadStoredAuth().then(({ isAuthenticated, onboarded }) => {
-      dispatch({ type: 'HYDRATE_AUTH', isAuthenticated, onboarded });
+    loadStoredAuth().then((identity) => {
+      dispatch({ type: 'HYDRATE_AUTH', ...identity });
     });
   }, []);
 
   useEffect(() => {
     if (!state.authReady) return;
-    persistAuth(state.isAuthenticated, state.onboarded);
-  }, [state.authReady, state.isAuthenticated, state.onboarded]);
+    persistAuth({
+      isAuthenticated: state.isAuthenticated,
+      onboarded: state.onboarded,
+      email: state.email,
+      name: state.name,
+      authProvider: state.authProvider,
+    });
+  }, [state.authReady, state.isAuthenticated, state.onboarded, state.email, state.name, state.authProvider]);
 
   const value = useMemo(() => state, [state]);
   return (

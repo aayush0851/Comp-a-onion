@@ -1,7 +1,8 @@
 export type HighlightMedia = { uri: string; type: 'image' | 'video' };
 
 export type OnboardingState = {
-  phone: string;
+  email: string;
+  authProvider: 'google' | 'apple' | null;
   name: string;
   dob: { day: string; month: string; year: string };
   gender: string | null;
@@ -14,7 +15,7 @@ export type OnboardingState = {
 };
 
 export type OnboardingAction =
-  | { type: 'SET_PHONE'; phone: string }
+  | { type: 'SET_OAUTH_IDENTITY'; email: string; name: string; provider: 'google' | 'apple' }
   | { type: 'SET_NAME'; name: string }
   | { type: 'SET_DOB'; field: 'day' | 'month' | 'year'; value: string }
   | { type: 'SET_GENDER'; gender: string }

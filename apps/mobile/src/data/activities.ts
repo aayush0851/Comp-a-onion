@@ -77,7 +77,7 @@ export const ACTIVITIES: Activity[] = [
     gettingIn: 'Open seats — tap and you’re in',
     going: [{ bg: '#F6E4DA', fg: '#A6512F', label: 'MD', name: 'Marcus D.', gender: 'Man' }],
     goingLine: 'Just you and Marcus',
-    genderRestriction: 'everyone',
+    genderRestriction: 'anyone',
     costMode: 'host',
   },
   {
@@ -105,7 +105,7 @@ export const ACTIVITIES: Activity[] = [
       { bg: '#EFE6DC', fg: '#5C534B', label: 'TA', name: 'Tobi A.', gender: 'Man' },
     ],
     goingLine: '3 in, 1 seat left',
-    genderRestriction: 'everyone',
+    genderRestriction: 'anyone',
     costMode: null,
   },
   {

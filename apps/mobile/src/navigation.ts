@@ -1,7 +1,6 @@
 export type RootStackParamList = {
   Signup: undefined;
-  Phone: undefined;
-  Otp: undefined;
+  Auth: undefined;
   Name: undefined;
   Birthday: undefined;
   Gender: undefined;

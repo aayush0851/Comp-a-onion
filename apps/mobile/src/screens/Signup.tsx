@@ -32,7 +32,7 @@ export default function Signup({ navigation }: Props) {
           ))}
         </View>
         <View style={{ flex: 1 }} />
-        <Btn label="Start with a phone number" variant="primary" onPress={() => navigation.navigate('Phone')} />
+        <Btn label="Get started" variant="primary" onPress={() => navigation.navigate('Auth')} />
         <Text style={styles.caption}>Not a dating app. Nothing to swipe, no faces on the board.</Text>
       </View>
     </View>

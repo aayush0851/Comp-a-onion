@@ -13,8 +13,7 @@ import type { RootStackParamList } from './src/navigation';
 import { AppProvider, useAppState } from './src/store';
 import { colors } from './src/theme';
 import Signup from './src/screens/Signup';
-import Phone from './src/screens/Phone';
-import Otp from './src/screens/Otp';
+import Auth from './src/screens/Auth';
 import Name from './src/screens/Name';
 import Birthday from './src/screens/Birthday';
 import Gender from './src/screens/Gender';
@@ -63,8 +62,7 @@ function RootNavigator() {
         {!state.isAuthenticated ? (
           <>
             <Stack.Screen name="Signup" component={Signup} />
-            <Stack.Screen name="Phone" component={Phone} />
-            <Stack.Screen name="Otp" component={Otp} />
+            <Stack.Screen name="Auth" component={Auth} />
           </>
         ) : (
           <>

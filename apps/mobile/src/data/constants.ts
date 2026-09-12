@@ -20,13 +20,13 @@ export const GREETINGS = [
 export const FILTER_LABELS = ['Tonight', 'Tomorrow', 'This week'];
 
 export const SIGNUP_STEPS = [
-  { n: 1, t: 'Number, ID and a selfie. Forty seconds, then you’re real.' },
+  { n: 1, t: 'Sign in, ID and a selfie. Forty seconds, then you’re real.' },
   { n: 2, t: 'Say what you’re up for — five taps, no essay.' },
   { n: 3, t: 'See what’s happening within a mile tonight.' },
 ];
 
 export const VERIFY_STEPS = [
-  { key: 'phone', t: 'Phone number', d: '+91 ····· ·····', state: 'Done', done: true },
+  { key: 'email', t: 'Signed in', d: '', state: 'Done', done: true },
   { key: 'selfie', t: 'Selfie check', d: 'Blink twice. That’s the whole test.', state: 'Start', done: false },
 ];
 

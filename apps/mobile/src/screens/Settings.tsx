@@ -6,7 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow } from '../theme';
 import { Btn, Header } from '../components/widgets';
-import { formatProximityKm, maskPhone, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
+import { formatProximityKm, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
 import { useAppDispatch, useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
@@ -89,7 +89,7 @@ export default function Settings({ navigation }: Props) {
 
         <SectionLabel>Account</SectionLabel>
         <View style={styles.card}>
-          <Row title="Phone number" sub={maskPhone(state.phone)} />
+          <Row title="Signed in with" sub={state.authProvider === 'apple' ? `Apple · ${state.email}` : `Google · ${state.email}`} />
           <Row
             title="Name"
             sub={state.name || 'Not set'}
