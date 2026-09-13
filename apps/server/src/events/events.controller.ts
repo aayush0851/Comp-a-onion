@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Sse, UseGuards } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { sseStream } from '../realtime/sse.util.js';
 import { EventsService } from './events.service.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
@@ -9,7 +11,10 @@ import { BoardQueryDto } from './dto/board-query.dto.js';
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   @Post('events')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateEventDto) {
@@ -19,6 +24,13 @@ export class EventsController {
   @Get('events')
   board(@CurrentUser() user: RequestUser, @Query() query: BoardQueryDto) {
     return this.eventsService.findBoard(user.userId, query);
+  }
+
+  // Declared before 'events/:id' — a plain @Get would otherwise treat 'stream'
+  // as an event id, same reason 'events/mine/hosted' is declared up here too.
+  @Sse('events/stream')
+  streamBoard() {
+    return sseStream<object>(this.events, 'event.created', () => true, () => ({}));
   }
 
   @Get('events/mine/hosted')

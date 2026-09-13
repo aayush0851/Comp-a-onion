@@ -11,6 +11,8 @@ import { Header } from '../components/widgets';
 import { ONBOARDING_STEPS } from '../data';
 import { useAppDispatch } from '../store';
 import { GOOGLE_WEB_CLIENT_ID } from '../config';
+import { authApi } from '../api';
+import { persistSession } from '../store/authStore/service';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
@@ -48,8 +50,10 @@ export default function Auth({ navigation }: Props) {
       const profile = await fetch('https://www.googleapis.com/userinfo/v2/me', {
         headers: { Authorization: `Bearer ${access_token}` },
       }).then((r) => r.json());
-      dispatch({ type: 'SET_OAUTH_IDENTITY', email: profile.email ?? '', name: profile.given_name ?? '', provider: 'google' });
-      dispatch({ type: 'AUTH_SUCCESS' });
+      const { accessToken, user } = await authApi.loginWithGoogle(access_token);
+      await persistSession(accessToken);
+      dispatch({ type: 'SET_OAUTH_IDENTITY', email: profile.email ?? user.email ?? '', name: profile.given_name ?? user.name ?? '', provider: 'google' });
+      dispatch({ type: 'AUTH_SUCCESS', userId: user.id });
     } catch {
       setError("Couldn't sign in with Google. Try again.");
     } finally {
@@ -94,8 +98,10 @@ export default function Auth({ navigation }: Props) {
         ],
       });
       const name = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
-      dispatch({ type: 'SET_OAUTH_IDENTITY', email: credential.email ?? '', name, provider: 'apple' });
-      dispatch({ type: 'AUTH_SUCCESS' });
+      const { accessToken, user } = await authApi.loginWithApple(credential.identityToken!);
+      await persistSession(accessToken);
+      dispatch({ type: 'SET_OAUTH_IDENTITY', email: credential.email ?? user.email ?? '', name: name || user.name || '', provider: 'apple' });
+      dispatch({ type: 'AUTH_SUCCESS', userId: user.id });
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') setError("Couldn't sign in with Apple. Try again.");
     }

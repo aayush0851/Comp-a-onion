@@ -5,7 +5,7 @@ import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, scale } from '../theme';
 import { Btn, FilterChips, Header } from '../components/widgets';
-import { ACTIVITIES, FILTER_LABELS, formatProximityKm, parseDistKm, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
+import { FILTER_LABELS, formatProximityKm, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
 import { useAppDispatch, useAppState } from '../store';
 
 type Props = { navigation: NavigationProp<RootStackParamList> };
@@ -16,8 +16,6 @@ export default function SearchFilters({ navigation }: Props) {
   const [when, setWhen] = useState<0 | 1 | 2>(state.filter);
   const [proximity, setProximity] = useState(state.proximityKm);
   const [hideAsked, setHideAsked] = useState(false);
-
-  const visibleCount = ACTIVITIES.filter((a) => parseDistKm(a.dist) <= proximity && !(hideAsked && state.requested.includes(a.id))).length;
 
   const apply = () => {
     dispatch({ type: 'SET_FILTER', filter: when });
@@ -64,7 +62,7 @@ export default function SearchFilters({ navigation }: Props) {
       </ScrollView>
       <View style={styles.footer}>
         <View style={{ width: 104 }}><Btn label="Reset" variant="secondary" onPress={reset} /></View>
-        <View style={{ flex: 1 }}><Btn label={`Show ${visibleCount} plans`} variant="primary" onPress={apply} /></View>
+        <View style={{ flex: 1 }}><Btn label="Show plans" variant="primary" onPress={apply} /></View>
       </View>
     </View>
   );

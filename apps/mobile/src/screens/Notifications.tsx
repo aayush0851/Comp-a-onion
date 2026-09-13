@@ -1,74 +1,143 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { colors, shadow } from '../theme';
 import { Header } from '../components/widgets';
+import { notificationsApi, joinRequestsApi } from '../api';
+import { connectSse } from '../realtime';
+import type { ApiNotification } from '../api/notifications';
 
 type Props = { navigation: NavigationProp<RootStackParamList> };
 
-type Item = {
-  id: string;
-  dot: 'new' | 'old';
-  body: React.ReactNode;
-  time: string;
-  actions?: { label: string; onPress: () => void }[];
-};
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'Just now';
+  if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return 'Yesterday';
+  if (day < 7) return `${day} days ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.toDateString() === now.toDateString();
+}
+
+function describe(n: ApiNotification): React.ReactNode {
+  const event = n.eventTitle ?? 'a plan';
+  const actor = n.actorName ?? 'Someone';
+  switch (n.kind) {
+    case 'JOIN_REQUEST':
+      return <Text style={styles.line}><Text style={styles.strong}>{actor}</Text> asked to join <Text style={styles.strong}>{event}</Text></Text>;
+    case 'APPROVAL':
+      return n.payload.decision === 'APPROVED'
+        ? <Text style={styles.line}>You're in — <Text style={styles.strong}>{event}</Text></Text>
+        : <Text style={styles.line}>Not this time — <Text style={styles.strong}>{event}</Text></Text>;
+    case 'RATING_RECEIVED':
+      return <Text style={styles.line}><Text style={styles.strong}>{actor}</Text> rated you</Text>;
+    case 'REVIEW_UNLOCKED':
+      return <Text style={styles.line}>Your ratings for <Text style={styles.strong}>{event}</Text> are unlocked</Text>;
+    default:
+      return <Text style={styles.line}>New activity</Text>;
+  }
+}
 
 export default function Notifications({ navigation }: Props) {
-  const items: Item[] = [
-    {
-      id: 'n1', dot: 'new', time: '12 minutes ago',
-      body: <Text style={styles.line}><Text style={styles.strong}>Tobi A.</Text> asked to join <Text style={styles.strong}>Ramen, then walk it off</Text></Text>,
-      actions: [
-        { label: 'Let them in', onPress: () => navigation.navigate('Queue') },
-        { label: 'View', onPress: () => navigation.navigate('Queue') },
-      ],
-    },
-    {
-      id: 'n2', dot: 'new', time: '9:00 this morning',
-      body: <Text style={styles.line}>Your ratings for <Text style={styles.strong}>Chess and a bad coffee</Text> are unlocked</Text>,
-    },
-    {
-      id: 'n3', dot: 'old', time: 'Yesterday',
-      body: <Text style={styles.line}><Text style={styles.strong}>Priya M.</Text> let you into <Text style={styles.strong}>Ramen, then walk it off</Text></Text>,
-    },
-    {
-      id: 'n4', dot: 'old', time: '2 days ago',
-      body: <Text style={styles.line}><Text style={styles.strong}>Maya K.</Text> rated you 5 stars</Text>,
-    },
-  ];
+  const [items, setItems] = useState<ApiNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    notificationsApi.listNotifications().then(setItems).finally(() => setLoading(false));
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    load();
+    return connectSse<ApiNotification>('/notifications/stream', (n) => {
+      setItems((prev) => [n, ...prev.filter((p) => p.id !== n.id)]);
+    });
+  }, [load]));
+
+  const markAllRead = async () => {
+    await notificationsApi.markAllNotificationsRead();
+    load();
+  };
+
+  const openNotification = async (n: ApiNotification) => {
+    if (!n.read) notificationsApi.markNotificationRead(n.id).catch(() => {});
+    if (n.kind === 'JOIN_REQUEST' && n.payload.eventId) navigation.navigate('PlanManage', { id: n.payload.eventId });
+    else if (n.kind === 'APPROVAL' && n.payload.eventId) {
+      if (n.payload.joinRequestId) joinRequestsApi.markRead(n.payload.joinRequestId).catch(() => {});
+      navigation.navigate('Detail', { id: n.payload.eventId });
+    } else if (n.kind === 'RATING_RECEIVED' || n.kind === 'REVIEW_UNLOCKED') navigation.navigate('MyReviews');
+  };
+
+  const letThemIn = async (n: ApiNotification) => {
+    if (!n.payload.joinRequestId) return;
+    await joinRequestsApi.decide(n.payload.joinRequestId, 'APPROVED');
+    await notificationsApi.markNotificationRead(n.id);
+    load();
+  };
+
+  const today = items.filter((n) => isToday(n.createdAt));
+  const earlier = items.filter((n) => !isToday(n.createdAt));
 
   return (
     <View style={styles.screen}>
-      <Header variant="stack" title="What you missed" subtitle="Requests, approvals and ratings. Nothing else." action="Mark all read" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.sectionLabel}>Today</Text>
-        {items.slice(0, 2).map((it) => <NotificationRow key={it.id} item={it} />)}
-        <Text style={[styles.sectionLabel, { marginTop: 6 }]}>Earlier</Text>
-        {items.slice(2).map((it) => <NotificationRow key={it.id} item={it} />)}
-      </ScrollView>
+      <Header
+        variant="stack"
+        title="What you missed"
+        subtitle="Requests, approvals and ratings. Nothing else."
+        action="Mark all read"
+        onAction={markAllRead}
+        onBack={() => navigation.goBack()}
+      />
+      {loading ? (
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
+      ) : items.length === 0 ? (
+        <Text style={[styles.line, { textAlign: 'center', marginTop: 40, color: colors.muted }]}>Nothing yet.</Text>
+      ) : (
+        <ScrollView contentContainerStyle={styles.body}>
+          {today.length > 0 && <Text style={styles.sectionLabel}>Today</Text>}
+          {today.map((n) => (
+            <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />
+          ))}
+          {earlier.length > 0 && <Text style={[styles.sectionLabel, { marginTop: 6 }]}>Earlier</Text>}
+          {earlier.map((n) => (
+            <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
-function NotificationRow({ item }: { item: Item }) {
+function NotificationRow({ item, onPress, onLetIn }: { item: ApiNotification; onPress: () => void; onLetIn: () => void }) {
   return (
-    <View style={[styles.row, item.dot === 'old' && { opacity: 0.76 }]}>
-      <View style={[styles.dot, { backgroundColor: item.dot === 'new' ? colors.clay : colors.borderSoft }]} />
+    <Pressable onPress={onPress} style={[styles.row, item.read && { opacity: 0.76 }]}>
+      <View style={[styles.dot, { backgroundColor: item.read ? colors.borderSoft : colors.clay }]} />
       <View style={{ flex: 1 }}>
-        {item.body}
-        <Text style={styles.time}>{item.time}</Text>
-        {!!item.actions && (
+        {describe(item)}
+        <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+        {item.kind === 'JOIN_REQUEST' && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            {item.actions.map((a) => (
-              <Pressable key={a.label} onPress={a.onPress} style={a.label === 'View' ? styles.viewBtn : styles.primaryBtn}>
-                <Text style={a.label === 'View' ? styles.viewLabel : styles.primaryLabel}>{a.label}</Text>
-              </Pressable>
-            ))}
+            <Pressable onPress={onLetIn} style={styles.primaryBtn}>
+              <Text style={styles.primaryLabel}>Let them in</Text>
+            </Pressable>
+            <Pressable onPress={onPress} style={styles.viewBtn}>
+              <Text style={styles.viewLabel}>View</Text>
+            </Pressable>
           </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

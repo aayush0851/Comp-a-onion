@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PUBLIC_USER_SELECT } from '../users/users.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EVENT_WITH_ATTENDEES, shapeEvent } from '../events/events.service.js';
 
 @Injectable()
 export class JoinRequestsService {
@@ -44,11 +45,12 @@ export class JoinRequestsService {
   }
 
   async listMine(userId: string) {
-    return this.prisma.joinRequest.findMany({
+    const requests = await this.prisma.joinRequest.findMany({
       where: { userId },
-      include: { event: true },
+      include: { event: EVENT_WITH_ATTENDEES },
       orderBy: { createdAt: 'desc' },
     });
+    return requests.map((jr) => ({ ...jr, event: shapeEvent(jr.event) }));
   }
 
   async decide(hostId: string, joinRequestId: string, decision: 'APPROVED' | 'DECLINED') {

@@ -1,0 +1,290 @@
+{
+  "info": {
+    "name": "Companion API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwt}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "jwt", "value": "" },
+    { "key": "eventId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "joinRequestId", "value": "" },
+    { "key": "personReviewId", "value": "" },
+    { "key": "reportId", "value": "" },
+    { "key": "notificationId", "value": "" },
+    { "key": "deviceTokenId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login with Google",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"accessToken\": \"\"\n}" },
+            "url": "{{baseUrl}}/auth/google"
+          }
+        },
+        {
+          "name": "Login with Apple",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"identityToken\": \"\"\n}" },
+            "url": "{{baseUrl}}/auth/apple"
+          }
+        },
+        {
+          "name": "Get Current Auth User",
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/me" }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me" }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"dob\": \"\",\n  \"gender\": \"\",\n  \"genderVisible\": true,\n  \"profilePicture\": \"\",\n  \"highlights\": [],\n  \"proximityKm\": 10,\n  \"vibeTags\": [],\n  \"latitude\": 0,\n  \"longitude\": 0\n}"
+            },
+            "url": "{{baseUrl}}/users/me"
+          }
+        },
+        {
+          "name": "Delete (Archive) My Account",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/users/me" }
+        },
+        {
+          "name": "Get Public Profile by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/{{userId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\",\n  \"date\": \"2026-09-20\",\n  \"time\": \"\",\n  \"venue\": \"\",\n  \"entryMode\": \"OPEN\",\n  \"seatsTotal\": 10,\n  \"tags\": [],\n  \"genderRestriction\": \"ANYONE\",\n  \"costMode\": \"HOST\"\n}"
+            },
+            "url": "{{baseUrl}}/events"
+          }
+        },
+        {
+          "name": "Get Event Board",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/events?filter=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"],
+              "query": [{ "key": "filter", "value": "0" }]
+            }
+          }
+        },
+        {
+          "name": "Get My Hosted Events",
+          "request": { "method": "GET", "url": "{{baseUrl}}/events/mine/hosted" }
+        },
+        {
+          "name": "Get Event by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}" }
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\",\n  \"time\": \"\",\n  \"venue\": \"\",\n  \"entryMode\": \"OPEN\",\n  \"seatsTotal\": 10,\n  \"tags\": [],\n  \"genderRestriction\": \"ANYONE\",\n  \"costMode\": \"HOST\"\n}"
+            },
+            "url": "{{baseUrl}}/events/{{eventId}}"
+          }
+        },
+        {
+          "name": "Archive Event",
+          "request": { "method": "POST", "url": "{{baseUrl}}/events/{{eventId}}/archive" }
+        }
+      ]
+    },
+    {
+      "name": "Join Requests",
+      "item": [
+        {
+          "name": "Create Join Request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"introText\": \"\"\n}" },
+            "url": "{{baseUrl}}/events/{{eventId}}/join-requests"
+          }
+        },
+        {
+          "name": "List Join Requests for Event (Host)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}/join-requests" }
+        },
+        {
+          "name": "List My Join Requests",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me/join-requests" }
+        },
+        {
+          "name": "Decide Join Request",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"decision\": \"APPROVED\"\n}" },
+            "url": "{{baseUrl}}/join-requests/{{joinRequestId}}/decide"
+          }
+        },
+        {
+          "name": "Mark Join Request Read",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/join-requests/{{joinRequestId}}/read" }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Send Event Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"\"\n}" },
+            "url": "{{baseUrl}}/events/{{eventId}}/messages"
+          }
+        },
+        {
+          "name": "List Event Messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/messages?after=",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "messages"],
+              "query": [{ "key": "after", "value": "" }]
+            }
+          }
+        },
+        {
+          "name": "Send DM",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"\"\n}" },
+            "url": "{{baseUrl}}/users/{{userId}}/dm"
+          }
+        },
+        {
+          "name": "List DM Thread",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/{{userId}}/dm" }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Submit Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"setupScores\": {},\n  \"setupTags\": [],\n  \"personReviews\": [\n    {\n      \"revieweeId\": \"\",\n      \"tags\": [],\n      \"rating\": 5,\n      \"note\": \"\",\n      \"meetAgain\": true,\n      \"flagged\": false\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/events/{{eventId}}/reviews"
+          }
+        },
+        {
+          "name": "Check If I Reviewed Event",
+          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}/reviews/mine" }
+        },
+        {
+          "name": "List Reviews I Received",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me/reviews/received" }
+        }
+      ]
+    },
+    {
+      "name": "Review Reports",
+      "item": [
+        {
+          "name": "Report a Person Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"\"\n}" },
+            "url": "{{baseUrl}}/person-reviews/{{personReviewId}}/report"
+          }
+        },
+        {
+          "name": "List Open Reports",
+          "request": { "method": "GET", "url": "{{baseUrl}}/review-reports" }
+        },
+        {
+          "name": "Resolve Report",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/review-reports/{{reportId}}/resolve" }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": { "method": "GET", "url": "{{baseUrl}}/notifications" }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/notifications/{{notificationId}}/read" }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/notifications/read-all" }
+        }
+      ]
+    },
+    {
+      "name": "Device Tokens",
+      "item": [
+        {
+          "name": "Register Device Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"platform\": \"IOS\",\n  \"pushToken\": \"\"\n}" },
+            "url": "{{baseUrl}}/device-tokens"
+          }
+        },
+        {
+          "name": "Unregister Device Token",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/device-tokens/{{deviceTokenId}}" }
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { colors, radius, shadow } from '../theme';
 import { Btn, Header } from '../components/widgets';
 import { formatProximityKm, PROXIMITY_MAX_KM, PROXIMITY_MIN_KM } from '../data';
 import { useAppDispatch, useAppState } from '../store';
+import { usersApi } from '../api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -110,7 +111,7 @@ export default function Settings({ navigation }: Props) {
               step={1}
               value={state.proximityKm}
               onValueChange={setProximityDraft}
-              onSlidingComplete={(km) => dispatch({ type: 'SET_PROXIMITY', km })}
+              onSlidingComplete={(km) => { dispatch({ type: 'SET_PROXIMITY', km }); usersApi.updateMe({ proximityKm: Math.round(km) }).catch((e) => console.error('Proximity save failed', e)); }}
               minimumTrackTintColor={colors.clay}
               maximumTrackTintColor={colors.borderSoft}
               thumbTintColor={colors.clayPressed}
@@ -135,7 +136,7 @@ export default function Settings({ navigation }: Props) {
             title="Show gender on profile"
             sub="Off means only you can see it"
             value={state.genderVisible}
-            onValueChange={() => dispatch({ type: 'TOGGLE_GENDER_VISIBLE' })}
+            onValueChange={() => { dispatch({ type: 'TOGGLE_GENDER_VISIBLE' }); usersApi.updateMe({ genderVisible: !state.genderVisible }).catch((e) => console.error('Gender visibility save failed', e)); }}
           />
           <SwitchRow title="Precise location" sub="Off shows your area, not your exact spot" value={preciseLocation} onValueChange={setPreciseLocation} last />
         </View>
@@ -169,7 +170,7 @@ export default function Settings({ navigation }: Props) {
               autoFocus
             />
             <View style={{ marginTop: 18 }}>
-              <Btn label="Save" onPress={() => { dispatch({ type: 'SET_NAME', name: nameDraft.trim() }); setShowEditName(false); }} />
+              <Btn label="Save" onPress={() => { dispatch({ type: 'SET_NAME', name: nameDraft.trim() }); usersApi.updateMe({ name: nameDraft.trim() }).catch((e) => console.error('Name save failed', e)); setShowEditName(false); }} />
             </View>
             <View style={{ marginTop: 9 }}>
               <Btn label="Cancel" variant="secondary" onPress={() => setShowEditName(false)} />
@@ -186,7 +187,11 @@ export default function Settings({ navigation }: Props) {
               This removes your profile, plans, and history for good. Nobody can undo this — including us.
             </Text>
             <View style={{ marginTop: 18 }}>
-              <Btn label="Delete everything" variant="danger" onPress={() => { setShowDelete(false); dispatch({ type: 'LOG_OUT' }); }} />
+              <Btn
+                label="Delete everything"
+                variant="danger"
+                onPress={() => { setShowDelete(false); usersApi.deleteMe().catch(() => {}); dispatch({ type: 'LOG_OUT' }); }}
+              />
             </View>
             <View style={{ marginTop: 9 }}>
               <Btn label="Never mind" variant="secondary" onPress={() => setShowDelete(false)} />

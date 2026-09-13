@@ -1,7 +1,7 @@
 // setupScores/setupTags are keyed by planId (the event being reviewed);
 // peopleTags/personRatings/personNotes/meetAgain/flagged are keyed by
-// requesterId (already globally unique per plan). reviewReplies is keyed by
-// the id of a review someone else left about you (data/reviews.ts).
+// the reviewee's user id. reviewReplies is keyed by the id of a PersonReview
+// someone else left about you (see api/reviews.ts).
 export type ReviewState = {
   rvStep: 0 | 1 | 2;
   setupScores: Record<string, Record<string, number>>;

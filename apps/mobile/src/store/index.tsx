@@ -1,24 +1,22 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type { AuthState } from './authStore/schema';
 import { authInitialState, authReducer } from './authStore/model';
-import { loadStoredAuth, persistAuth } from './authStore/service';
+import { clearSession, loadStoredAuth, persistAuth } from './authStore/service';
+import { registerForPushNotifications, unregisterPushNotifications } from '../push';
 import type { OnboardingState } from './onboardingStore/schema';
 import { onboardingInitialState, onboardingReducer } from './onboardingStore/model';
 import type { PlansState } from './plansStore/schema';
 import { plansInitialState, plansReducer } from './plansStore/model';
-import type { ChatState } from './chatStore/schema';
-import { chatInitialState, chatReducer } from './chatStore/model';
 import type { ReviewState } from './reviewStore/schema';
 import { reviewInitialState, reviewReducer } from './reviewStore/model';
 import type { Action } from './actions';
 
-export type AppState = AuthState & OnboardingState & PlansState & ChatState & ReviewState;
+export type AppState = AuthState & OnboardingState & PlansState & ReviewState;
 
 const initialState: AppState = {
   ...authInitialState,
   ...onboardingInitialState,
   ...plansInitialState,
-  ...chatInitialState,
   ...reviewInitialState,
 };
 
@@ -30,7 +28,6 @@ function rootReducer(state: AppState, action: Action): AppState {
   next = authReducer(next, action);
   next = onboardingReducer(next, action);
   next = plansReducer(next, action);
-  next = chatReducer(next, action);
   next = reviewReducer(next, action);
   return next;
 }
@@ -49,14 +46,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state.authReady) return;
+    if (!state.isAuthenticated) {
+      clearSession();
+      return;
+    }
     persistAuth({
       isAuthenticated: state.isAuthenticated,
       onboarded: state.onboarded,
       email: state.email,
       name: state.name,
       authProvider: state.authProvider,
+      userId: state.userId,
     });
-  }, [state.authReady, state.isAuthenticated, state.onboarded, state.email, state.name, state.authProvider]);
+  }, [state.authReady, state.isAuthenticated, state.onboarded, state.email, state.name, state.authProvider, state.userId]);
+
+  useEffect(() => {
+    if (!state.authReady) return;
+    if (state.isAuthenticated) registerForPushNotifications();
+    else unregisterPushNotifications();
+  }, [state.authReady, state.isAuthenticated]);
 
   const value = useMemo(() => state, [state]);
   return (
@@ -79,8 +87,5 @@ export function useAppDispatch() {
 }
 
 export type { Action } from './actions';
-export type { Shape, PublishedPlan } from './plansStore/schema';
+export type { Shape } from './plansStore/schema';
 export type { HighlightMedia } from './onboardingStore/schema';
-export { isPlanArchived, joinedCountFor, planArchiveReason } from './plansStore/model';
-export { myAverageRating } from './reviewStore/model';
-export { pendingReviewPlans } from './selectors';

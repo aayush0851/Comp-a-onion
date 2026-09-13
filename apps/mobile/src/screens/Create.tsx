@@ -11,6 +11,7 @@ import {
 } from '../data';
 import { useAppState, useAppDispatch } from '../store';
 import TimeWheelSheet from '../components/TimeWheelSheet';
+import { eventsApi, ApiError } from '../api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
 
@@ -21,20 +22,41 @@ export default function Create({ navigation }: Props) {
   const dispatch = useAppDispatch();
   const dateOptions = useMemo(() => nextSevenDays(), []);
   const [showTimeSheet, setShowTimeSheet] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState('');
 
   const canContinue = state.step !== 1 || !!state.planDate;
 
-  const next = () => {
+  const next = async () => {
     if (!canContinue) return;
     if (state.step < 2) {
       dispatch({ type: 'SET_STEP', step: (state.step + 1) as 0 | 1 | 2 });
-    } else {
-      dispatch({ type: 'PUBLISH_PLAN' });
+      return;
+    }
+    setPublishing(true);
+    setError('');
+    try {
+      await eventsApi.createEvent({
+        title: state.planTitle.trim() || 'Untitled plan',
+        date: state.planDate!,
+        time: state.planTime ?? undefined,
+        venue: state.planVenue ?? undefined,
+        entryMode: state.approvalRequired ? 'APPROVE' : 'OPEN',
+        seatsTotal: state.shape === 'duo' ? 2 : state.size,
+        tags: state.planTags,
+        genderRestriction: state.genderRestriction,
+        costMode: state.costMode,
+      });
+      dispatch({ type: 'RESET_CREATE' });
       navigation.navigate('Board');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't publish. Try again.");
+    } finally {
+      setPublishing(false);
     }
   };
 
-  const cta = state.step < 2 ? 'Next' : 'Publish';
+  const cta = state.step < 2 ? 'Next' : publishing ? 'Publishing…' : 'Publish';
 
   return (
     <View style={styles.screen}>
@@ -195,7 +217,8 @@ export default function Create({ navigation }: Props) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Btn label={cta} variant={canContinue ? 'primary' : 'disabled'} onPress={next} />
+        {!!error && <Text style={[styles.note, { color: colors.clayPressed, textAlign: 'center', marginBottom: 8 }]}>{error}</Text>}
+        <Btn label={cta} variant={canContinue && !publishing ? 'primary' : 'disabled'} onPress={next} />
       </View>
     </View>
   );

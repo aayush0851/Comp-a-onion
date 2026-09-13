@@ -1,20 +1,45 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, scale, shadow } from '../theme';
 import { Btn, Header, Stars, UserChip } from '../components/widgets';
-import { RECEIVED_REVIEWS } from '../data';
+import { initialsOf } from '../data/eventDisplay';
 import { useAppDispatch, useAppState } from '../store';
+import { reviewsApi } from '../api';
+import type { ApiPersonReview } from '../api/reviews';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewDetail'>;
 
 export default function ReviewDetail({ navigation, route }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const review = RECEIVED_REVIEWS.find((r) => r.id === route.params.reviewId);
-  const existingReply = review ? state.reviewReplies[review.id] ?? review.reply ?? '' : '';
-  const [draft, setDraft] = useState(existingReply);
+  const [review, setReview] = useState<ApiPersonReview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      reviewsApi.listReceived()
+        .then((all) => {
+          const found = all.find((r) => r.id === route.params.reviewId) ?? null;
+          setReview(found);
+          setDraft(state.reviewReplies[route.params.reviewId] ?? '');
+        })
+        .finally(() => setLoading(false));
+    }, [route.params.reviewId]),
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <Header variant="stack" title="Review" onBack={() => navigation.goBack()} />
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
+      </View>
+    );
+  }
 
   if (!review) {
     return (
@@ -24,6 +49,9 @@ export default function ReviewDetail({ navigation, route }: Props) {
     );
   }
 
+  const reviewerName = review.review.reviewer.name ?? 'Someone';
+  const date = new Date(review.review.createdAt).toLocaleDateString();
+
   const post = () => {
     if (!draft.trim()) return;
     dispatch({ type: 'POST_REVIEW_REPLY', reviewId: review.id, reply: draft.trim() });
@@ -31,12 +59,18 @@ export default function ReviewDetail({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      <Header variant="stack" title="Review" subtitle={`From ${review.reviewer} · ${review.date}`} onBack={() => navigation.goBack()} />
+      <Header variant="stack" title="Review" subtitle={`From ${reviewerName} · ${date}`} onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
-          <UserChip name={review.reviewer} initials={review.initials} tone={review.tone} rating={review.reviewerRating} count={review.reviewerCount} />
-          <View style={{ marginTop: 15 }}><Stars value={review.rating} size="l" /></View>
-          <Text style={[scale.body, { fontSize: 15, lineHeight: 23, color: '#453F39', marginTop: 13 }]}>{review.body}</Text>
+          <UserChip
+            name={reviewerName}
+            initials={initialsOf(review.review.reviewer.name)}
+            rating={review.review.reviewer.aggregatedRating || undefined}
+          />
+          <View style={{ marginTop: 15 }}><Stars value={review.rating ?? 0} size="l" /></View>
+          {!!review.note && (
+            <Text style={[scale.body, { fontSize: 15, lineHeight: 23, color: '#453F39', marginTop: 13 }]}>{review.note}</Text>
+          )}
           {!!review.tags.length && (
             <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap', marginTop: 14 }}>
               {review.tags.map((t) => (
@@ -46,7 +80,7 @@ export default function ReviewDetail({ navigation, route }: Props) {
           )}
           <View style={styles.planRow}>
             <View style={styles.planThumb} />
-            <Text style={{ flex: 1, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.inkSecondary }} numberOfLines={1}>{review.plan}</Text>
+            <Text style={{ flex: 1, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.inkSecondary }} numberOfLines={1}>{review.review.event.title}</Text>
           </View>
         </View>
 

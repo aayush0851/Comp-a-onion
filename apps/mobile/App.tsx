@@ -30,10 +30,8 @@ import PlanManage from './src/screens/PlanManage';
 import RequesterChat from './src/screens/RequesterChat';
 import RequesterProfile from './src/screens/RequesterProfile';
 import MyReviews from './src/screens/MyReviews';
-import EventChats from './src/screens/EventChats';
+import SentRequests from './src/screens/SentRequests';
 import Create from './src/screens/Create';
-import Sent from './src/screens/Sent';
-import Queue from './src/screens/Queue';
 import ChatList from './src/screens/ChatList';
 import Chat from './src/screens/Chat';
 import Profile from './src/screens/Profile';
@@ -82,10 +80,8 @@ function RootNavigator() {
             <Stack.Screen name="RequesterChat" component={RequesterChat} />
             <Stack.Screen name="RequesterProfile" component={RequesterProfile} />
             <Stack.Screen name="MyReviews" component={MyReviews} />
-            <Stack.Screen name="EventChats" component={EventChats} />
+            <Stack.Screen name="SentRequests" component={SentRequests} />
             <Stack.Screen name="Create" component={Create} />
-            <Stack.Screen name="Sent" component={Sent} />
-            <Stack.Screen name="Queue" component={Queue} />
             <Stack.Screen name="ChatList" component={ChatList} />
             <Stack.Screen name="Chat" component={Chat} />
             <Stack.Screen name="Profile" component={Profile} />

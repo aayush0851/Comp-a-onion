@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors } from '../theme';
 import { EmptyState, FilterChips, Header, RatingSummary, ReviewCard } from '../components/widgets';
-import { RATING_DIST, RATING_TRAITS, RECEIVED_REVIEWS } from '../data';
-import { myAverageRating, useAppState } from '../store';
+import { RATING_DIST, RATING_TRAITS } from '../data';
+import { initialsOf } from '../data/eventDisplay';
+import { useAppState } from '../store';
+import { reviewsApi, usersApi } from '../api';
+import type { ApiPersonReview } from '../api/reviews';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyReviews'>;
 
@@ -14,12 +18,25 @@ const FILTERS = ['All', '5 star', '4 star', 'With notes'];
 export default function MyReviews({ navigation }: Props) {
   const state = useAppState();
   const [filter, setFilter] = useState(0);
-  const reviews = useMemo(() => RECEIVED_REVIEWS.filter((r) => {
+  const [received, setReceived] = useState<ApiPersonReview[]>([]);
+  const [rating, setRating] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      Promise.all([reviewsApi.listReceived(), usersApi.getMe()])
+        .then(([reviews, me]) => { setReceived(reviews); setRating(me.aggregatedRating); })
+        .finally(() => setLoading(false));
+    }, []),
+  );
+
+  const reviews = useMemo(() => received.filter((r) => {
     if (filter === 1) return r.rating === 5;
     if (filter === 2) return r.rating === 4;
-    if (filter === 3) return r.body.trim().length > 0;
+    if (filter === 3) return !!r.note?.trim();
     return true;
-  }), [filter]);
+  }), [filter, received]);
 
   return (
     <View style={styles.screen}>
@@ -29,7 +46,9 @@ export default function MyReviews({ navigation }: Props) {
         subtitle="What people said after meeting you. They saw yours at the same moment."
         onBack={() => navigation.navigate('Profile')}
       />
-      {RECEIVED_REVIEWS.length === 0 ? (
+      {loading ? (
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
+      ) : received.length === 0 ? (
         <View style={{ paddingTop: 30 }}>
           <EmptyState
             shape="circle"
@@ -42,22 +61,21 @@ export default function MyReviews({ navigation }: Props) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
-          <RatingSummary value={myAverageRating()} count={RECEIVED_REVIEWS.length} dist={RATING_DIST} traits={RATING_TRAITS} />
+          <RatingSummary value={rating} count={received.length} dist={RATING_DIST} traits={RATING_TRAITS} />
           <FilterChips items={FILTERS} active={filter} onChange={setFilter} />
           {reviews.map((r) => (
             <ReviewCard
               key={r.id}
-              reviewer={r.reviewer}
-              initials={r.initials}
-              tone={r.tone}
-              reviewerRating={r.reviewerRating}
-              reviewerCount={r.reviewerCount}
-              rating={r.rating}
-              date={r.date}
-              body={r.body}
+              reviewer={r.review.reviewer.name ?? 'Someone'}
+              initials={initialsOf(r.review.reviewer.name)}
+              tone="peach"
+              reviewerRating={r.review.reviewer.aggregatedRating || undefined}
+              rating={r.rating ?? 0}
+              date={new Date(r.review.createdAt).toLocaleDateString()}
+              body={r.note ?? ''}
               tags={r.tags}
-              plan={r.plan}
-              reply={state.reviewReplies[r.id] ?? r.reply}
+              plan={r.review.event.title}
+              reply={state.reviewReplies[r.id]}
               onPress={() => navigation.navigate('ReviewDetail', { reviewId: r.id })}
             />
           ))}

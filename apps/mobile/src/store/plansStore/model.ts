@@ -1,7 +1,7 @@
-import { CostMode, GenderRestriction, isDateKeyPast, QUEUE_SEED, REQUESTER_POOL } from '../../data';
+import type { CostMode, GenderRestriction } from '../../data';
 import type { Action } from '../actions';
 import type { AppState } from '../index';
-import type { PlansState, PublishedPlan, Shape } from './schema';
+import type { PlansState, Shape } from './schema';
 
 const emptyDraft = {
   step: 0 as const,
@@ -18,31 +18,12 @@ const emptyDraft = {
 };
 
 export const plansInitialState: PlansState = {
-  requested: [],
   filter: 0,
   ...emptyDraft,
-  publishedPlans: [],
-  queue: QUEUE_SEED,
-  decided: {},
 };
-
-export function isPlanArchived(p: PublishedPlan): boolean {
-  return p.archived || (!!p.date && isDateKeyPast(p.date));
-}
-
-export function joinedCountFor(p: PublishedPlan): number {
-  return p.approvalRequired ? Object.values(p.decided).filter((d) => d === 'in').length : p.requesters.length;
-}
-
-export function planArchiveReason(p: PublishedPlan): string {
-  if (p.archived) return 'Archived by you';
-  return joinedCountFor(p) > 0 ? 'Completed' : 'Expired — nobody joined';
-}
 
 export function plansReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'REQUEST_JOIN':
-      return { ...state, requested: [...state.requested, action.id] };
     case 'SET_FILTER':
       return { ...state, filter: action.filter };
     case 'SET_STEP':
@@ -73,43 +54,8 @@ export function plansReducer(state: AppState, action: Action): AppState {
       return { ...state, genderRestriction: action.genderRestriction };
     case 'TOGGLE_COST_MODE':
       return { ...state, costMode: state.costMode === action.costMode ? null : action.costMode };
-    case 'DECIDE':
-      return { ...state, decided: { ...state.decided, [action.id]: action.decision } };
     case 'RESET_CREATE':
       return { ...state, ...emptyDraft };
-    case 'PUBLISH_PLAN': {
-      const id = `plan-${Date.now()}`;
-      const plan: PublishedPlan = {
-        id,
-        title: state.planTitle.trim() || 'Untitled plan',
-        tags: state.planTags,
-        date: state.planDate,
-        time: state.planTime,
-        venue: state.planVenue,
-        shape: state.shape,
-        size: state.size,
-        approvalRequired: state.approvalRequired,
-        genderRestriction: state.genderRestriction,
-        costMode: state.costMode,
-        createdAt: Date.now(),
-        requesters: REQUESTER_POOL.map((r) => ({ ...r, id: `${id}-${r.id}` })),
-        decided: {},
-        archived: false,
-      };
-      return { ...state, ...emptyDraft, publishedPlans: [plan, ...state.publishedPlans] };
-    }
-    case 'DECIDE_REQUESTER':
-      return {
-        ...state,
-        publishedPlans: state.publishedPlans.map((p) => (p.id === action.planId
-          ? { ...p, decided: { ...p.decided, [action.requesterId]: action.decision } }
-          : p)),
-      };
-    case 'ARCHIVE_PLAN':
-      return {
-        ...state,
-        publishedPlans: state.publishedPlans.map((p) => (p.id === action.planId ? { ...p, archived: true } : p)),
-      };
     case 'LOG_OUT':
       return { ...state, ...plansInitialState };
     default:

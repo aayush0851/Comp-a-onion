@@ -1,5 +1,12 @@
 export const ONBOARDING_STEPS = 8;
 
+// ponytail: off for now per product ask, flip to true to bring selfie verification back.
+export const SELFIE_VERIFICATION_ENABLED = false;
+
+// ponytail: dev-only convenience for a free-tier Render server that cold-starts —
+// turn off once on a paid tier that doesn't sleep.
+export const SERVER_STATUS_INDICATOR_ENABLED = true;
+
 export const GENDER_OPTIONS = ['Woman', 'Man', 'Nonbinary'] as const;
 
 export const PROXIMITY_MIN_KM = 0;

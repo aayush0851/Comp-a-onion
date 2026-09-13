@@ -7,7 +7,9 @@ import type { RootStackParamList } from '../navigation';
 import { colors, radius } from '../theme';
 import { Btn, Header } from '../components/widgets';
 import { useAppDispatch, useAppState } from '../store';
-import { ONBOARDING_STEPS } from '../data';
+import { ONBOARDING_STEPS, SELFIE_VERIFICATION_ENABLED } from '../data';
+import { usersApi } from '../api';
+import { uploadMedia } from '../firebase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Highlights'>;
 
@@ -23,7 +25,55 @@ export default function Highlights({ navigation, route }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const canContinue = state.highlights.length > 0;
+
+  const uploadPendingHighlights = async (): Promise<string[]> => {
+    return Promise.all(
+      state.highlights.map(async (h) => {
+        if (h.uri.startsWith('http')) return h.uri;
+        return uploadMedia(h.uri);
+      }),
+    );
+  };
+
+  const continueOnboarding = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const highlights = await uploadPendingHighlights();
+      const { day, month, year } = state.dob;
+      await usersApi.updateMe({
+        name: state.name || undefined,
+        dob: day && month && year ? `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` : undefined,
+        gender: (state.gender === 'Self-describe' ? state.genderCustom : state.gender) || undefined,
+        genderVisible: state.genderVisible,
+        vibeTags: state.vibeTags,
+        highlights,
+      });
+      navigation.navigate(SELFIE_VERIFICATION_ENABLED ? 'Verify' : 'Board');
+    } catch (e) {
+      console.error('Onboarding profile save failed', e);
+      setError("Couldn't save. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const highlights = await uploadPendingHighlights();
+      await usersApi.updateMe({ highlights });
+      navigation.goBack();
+    } catch (e) {
+      console.error('Highlights save failed', e);
+      setError("Couldn't save. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const addOne = async () => {
     setError('');
@@ -86,9 +136,9 @@ export default function Highlights({ navigation, route }: Props) {
       </View>
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
         <Btn
-          label={isEdit ? 'Save' : canContinue ? 'Continue' : 'Skip for now'}
-          variant={canContinue ? 'primary' : 'secondary'}
-          onPress={() => (isEdit ? navigation.goBack() : navigation.navigate('Verify'))}
+          label={saving ? 'Saving…' : isEdit ? 'Save' : canContinue ? 'Continue' : 'Skip for now'}
+          variant={saving ? 'disabled' : canContinue ? 'primary' : 'secondary'}
+          onPress={() => (isEdit ? saveEdit() : continueOnboarding())}
         />
       </View>
     </View>

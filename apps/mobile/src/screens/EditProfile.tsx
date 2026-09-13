@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { colors, scale, shadow } from '../theme';
 import { Header } from '../components/widgets';
 import { VIBE_TAGS } from '../data';
 import { useAppDispatch, useAppState } from '../store';
+import { usersApi } from '../api';
+import { uploadMedia } from '../firebase';
 
 type Props = { navigation: NavigationProp<RootStackParamList> };
 
@@ -13,10 +16,35 @@ export default function EditProfile({ navigation }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [name, setName] = useState(state.name);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const initials = name.trim() ? name.trim().slice(0, 2).toUpperCase() : 'YO';
+
+  const pickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    dispatch({ type: 'SET_PROFILE_PHOTO', uri });
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadMedia(uri);
+      await usersApi.updateMe({ profilePicture: url });
+    } catch (e) {
+      console.error('Photo upload failed', e);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const save = () => {
     dispatch({ type: 'SET_NAME', name: name.trim() });
+    usersApi.updateMe({ name: name.trim(), vibeTags: state.vibeTags }).catch((e) => console.error('Profile save failed', e));
     navigation.goBack();
   };
 
@@ -31,13 +59,21 @@ export default function EditProfile({ navigation }: Props) {
         onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={styles.body}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          <View style={styles.avatar}><Text style={styles.avatarLabel}>{initials}</Text></View>
+        <Pressable onPress={pickPhoto} disabled={uploadingPhoto} style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+          <View style={styles.avatar}>
+            {state.profilePhoto ? (
+              <Image source={{ uri: state.profilePhoto }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarLabel}>{initials}</Text>
+            )}
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={scale.inline}>Main photo</Text>
-            <Text style={[scale.meta, { marginTop: 3, lineHeight: 18 }]}>Shown on your profile, never on the board.</Text>
+            <Text style={[scale.meta, { marginTop: 3, lineHeight: 18 }]}>
+              {uploadingPhoto ? 'Uploading…' : 'Shown on your profile, never on the board. Tap to change.'}
+            </Text>
           </View>
-        </View>
+        </Pressable>
 
         <View>
           <Text style={styles.label}>Display name</Text>
@@ -85,7 +121,8 @@ export default function EditProfile({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ground },
   body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40, gap: 16 },
-  avatar: { width: 74, height: 74, borderRadius: 999, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 74, height: 74, borderRadius: 999, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
   avatarLabel: { fontFamily: 'Figtree_700Bold', fontSize: 24, color: colors.clayPressed },
   label: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.faint, marginBottom: 8 },
   input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, minHeight: 52, paddingHorizontal: 16, fontFamily: 'Figtree_600SemiBold', fontSize: 15, color: colors.ink },

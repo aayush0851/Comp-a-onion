@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, scale } from '../theme';
 import { FilterChips, Header, PlanCard, TabBar, TabKey } from '../components/widgets';
-import {
-  ACTIVITIES, FILTER_LABELS, formatProximityKm, GREETINGS, parseDistKm,
-} from '../data';
+import { FILTER_LABELS, formatProximityKm, GREETINGS } from '../data';
+import { toEventCard } from '../data/eventDisplay';
+import { eventsApi, joinRequestsApi } from '../api';
+import { connectSse } from '../realtime';
+import type { ApiEvent, ApiJoinRequest } from '../api/types';
 import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Board'>;
@@ -14,12 +17,35 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Board'>;
 export default function Board({ navigation }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const [events, setEvents] = useState<ApiEvent[]>([]);
+  const [myRequests, setMyRequests] = useState<Map<string, ApiJoinRequest>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!state.onboarded) dispatch({ type: 'SET_ONBOARDED' });
   }, [state.onboarded]);
 
-  const visibleActivities = ACTIVITIES.filter((c) => parseDistKm(c.dist) <= state.proximityKm);
+  const load = useCallback(() => {
+    setLoading(true);
+    setError('');
+    Promise.all([eventsApi.listBoard(state.filter), joinRequestsApi.listMine()])
+      .then(([board, mine]) => {
+        setEvents(board);
+        setMyRequests(new Map(mine.filter((jr) => jr.status !== 'DECLINED' && jr.status !== 'EXPIRED').map((jr) => [jr.eventId, jr])));
+      })
+      .catch((e) => { console.error('Board load failed', e); setError("Couldn't load the board. Pull down to try again."); })
+      .finally(() => setLoading(false));
+  }, [state.filter]);
+
+  useFocusEffect(useCallback(() => {
+    load();
+    // The stream is just a "something new was posted" signal — the actual
+    // gender/date filtering already lives server-side in listBoard.
+    return connectSse<object>('/events/stream', () => load());
+  }, [load]));
+
+  const cards = events.map(toEventCard);
 
   const onTab = (key: TabKey) => {
     if (key === 'plans') navigation.navigate('MyPlans');
@@ -35,7 +61,7 @@ export default function Board({ navigation }: Props) {
         variant="home"
         title={GREETINGS[state.filter]}
         subtitle="Nobody's committed yet. Neither are you."
-        action={`SoMa · ${formatProximityKm(state.proximityKm)}`}
+        action={`Nearby · ${formatProximityKm(state.proximityKm)}`}
         actionDot
         onAction={() => navigation.navigate('SearchFilters')}
       />
@@ -46,37 +72,52 @@ export default function Board({ navigation }: Props) {
           onChange={(i) => dispatch({ type: 'SET_FILTER', filter: i as 0 | 1 | 2 })}
         />
       </View>
-      <ScrollView contentContainerStyle={styles.cards}>
-        {visibleActivities.map((c) => {
-          const full = c.seatsFilled >= c.seatsTotal;
-          const badge = full ? `${c.host} approves` : c.entry === 'open' ? 'Open seats' : `${c.host} approves`;
-          const cta = c.entry === 'open' ? 'Take a seat' : 'Ask to join';
-          return (
-            <PlanCard
-              key={c.id}
-              title={c.title}
-              blurb={c.venueLine}
-              venue={c.slot}
-              time={c.time}
-              dist={c.dist}
-              badge={badge}
-              badgeTone={c.entry === 'open' && !full ? 'primary' : 'light'}
-              tag={c.genderRestriction !== 'anyone' ? `${c.genderRestriction === 'women' ? 'Women' : 'Men'} only` : null}
-              kind={c.shapeLabel}
-              filled={c.seatsFilled}
-              total={c.seatsTotal}
-              cta={cta}
-              host={c.host}
-              hostInitials={c.hostInitials}
-              onPress={() => navigation.navigate('Detail', { id: c.id })}
-              onPressCta={() => navigation.navigate('Detail', { id: c.id })}
-            />
-          );
-        })}
-        <Text style={[scale.accent, { fontSize: 15, paddingHorizontal: 6 }]}>
-          Nothing here for you? Post your own — twenty seconds, and 214 people see it.
-        </Text>
-      </ScrollView>
+      {loading ? (
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.cards}>
+          {!!error && <Text style={[scale.meta, { textAlign: 'center' }]}>{error}</Text>}
+          {!error && cards.length === 0 && (
+            <Text style={[scale.meta, { textAlign: 'center', paddingTop: 20 }]}>Nothing posted near you yet.</Text>
+          )}
+          {cards.map((c) => {
+            const isHost = c.hostId === state.userId;
+            const myRequest = myRequests.get(c.id);
+            const cta = isHost
+              ? 'Manage plan'
+              : myRequest?.status === 'APPROVED'
+                ? 'Open chat'
+                : myRequest?.status === 'PENDING'
+                  ? 'Requested'
+                  : c.entry === 'open' ? 'Take a seat' : 'Ask to join';
+            return (
+              <PlanCard
+                key={c.id}
+                title={c.title}
+                blurb={c.venueLine}
+                venue={c.genderRestriction !== 'anyone' ? `${c.genderRestriction === 'women' ? 'Women' : 'Men'} only` : null}
+                time={c.time}
+                dist=""
+                badge={null}
+                badgeTone="primary"
+                badgeIcon={c.entry === 'open' ? 'zap' : undefined}
+                kind={c.shapeLabel}
+                filled={c.seatsFilled}
+                total={c.seatsTotal}
+                cta={cta}
+                host={c.host}
+                hostInitials={c.hostInitials}
+                hostPhoto={c.hostPhoto}
+                onPress={() => navigation.navigate('Detail', { id: c.id })}
+                onPressCta={() => navigation.navigate('Detail', { id: c.id })}
+              />
+            );
+          })}
+          <Text style={[scale.accent, { fontSize: 15, paddingHorizontal: 6 }]}>
+            Nothing here for you? Post your own — twenty seconds, and people nearby see it.
+          </Text>
+        </ScrollView>
+      )}
       <View style={styles.tabBar}>
         <TabBar active="explore" unread={false} onPress={onTab} />
       </View>

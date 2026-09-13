@@ -1,30 +1,75 @@
-import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, shadow, stripe } from '../theme';
 import { BackButton, Btn, UserChip } from '../components/widgets';
-import {
-  ACTIVITIES, costModeLabel, GENDER_COLORS, genderIconSymbol, genderRestrictionLabel, HOUSE_RULES,
-} from '../data';
-import { useAppState, useAppDispatch } from '../store';
+import { costModeLabel, GENDER_COLORS, genderIconSymbol, genderRestrictionLabel, HOUSE_RULES } from '../data';
+import { toEventCard, type EventCard } from '../data/eventDisplay';
+import { eventsApi, joinRequestsApi, ApiError } from '../api';
+import type { ApiJoinRequest } from '../api/types';
+import { useAppState } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
 export default function Detail({ navigation, route }: Props) {
-  const activity = ACTIVITIES.find((a) => a.id === route.params.id) ?? ACTIVITIES[0];
-  const state = useAppState();
-  const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
+  const state = useAppState();
+  const [activity, setActivity] = useState<EventCard | null>(null);
+  const [myRequest, setMyRequest] = useState<ApiJoinRequest | null>(null);
+  const [loading, setLoading] = useState(true);
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState('');
   const [showGoing, setShowGoing] = useState(false);
-  const sent = state.requested.includes(activity.id);
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      Promise.all([eventsApi.getEvent(route.params.id), joinRequestsApi.listMine()])
+        .then(([event, mine]) => {
+          setActivity(toEventCard(event));
+          setMyRequest(mine.find((jr) => jr.eventId === route.params.id) ?? null);
+        })
+        .catch(() => setError("Couldn't load this plan."))
+        .finally(() => setLoading(false));
+    }, [route.params.id]),
+  );
+
+  if (loading || !activity) {
+    return (
+      <View style={[styles.screen, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={colors.clay} />
+      </View>
+    );
+  }
+
+  const isHost = activity.hostId === state.userId;
+  const activeRequest = myRequest && myRequest.status !== 'DECLINED' && myRequest.status !== 'EXPIRED' ? myRequest : null;
+
   const cta = activity.entry === 'open' ? 'Take a seat' : 'Ask to join';
   const ctaNote = activity.entry === 'open'
     ? 'No approval on this one. The chat opens straight away.'
     : `${activity.hostFirst} reads one line and decides. No chat until then.`;
+
+  const submitRequest = async () => {
+    setSending(true);
+    setError('');
+    try {
+      await joinRequestsApi.createJoinRequest(activity.id, message.trim() || undefined);
+      setAsking(false);
+      setSent(true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't send that. Try again.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -35,8 +80,8 @@ export default function Detail({ navigation, route }: Props) {
           </View>
           <View style={styles.slotChip}><Text style={styles.slotLabel}>{activity.slot}</Text></View>
           <View style={styles.timeChip}>
-            <Text style={styles.timeLabel}>{activity.time} today</Text>
-            <Text style={styles.distLabel}>{activity.dist}</Text>
+            <Feather name="clock" size={13} color={colors.ground} />
+            <Text style={styles.timeLabel}>{activity.time}</Text>
           </View>
         </View>
 
@@ -51,11 +96,7 @@ export default function Detail({ navigation, route }: Props) {
 
           <View style={styles.hostCard}>
             <View style={{ flex: 1 }}>
-              <UserChip name={activity.host} initials={activity.hostInitials} size="m" meta={`Hosting · ${activity.hosted} plans · everyone turned up`} />
-            </View>
-            <View style={styles.verifiedChip}>
-              <View style={styles.verifiedDot} />
-              <Text style={styles.verifiedLabel}>ID verified</Text>
+              <UserChip name={activity.host} initials={activity.hostInitials} photo={activity.hostPhoto} size="m" meta="Hosting" />
             </View>
           </View>
 
@@ -101,8 +142,28 @@ export default function Detail({ navigation, route }: Props) {
         </View>
       </ScrollView>
 
-      {!asking && !sent && (
+      {isHost && (
         <View style={styles.bottomIdle}>
+          <Btn label="Manage plan" onPress={() => navigation.navigate('PlanManage', { id: activity.id })} />
+        </View>
+      )}
+      {!isHost && activeRequest?.status === 'APPROVED' && (
+        <View style={styles.bottomIdle}>
+          <Btn label="Open chat" onPress={() => navigation.navigate('Chat', { id: activity.id })} />
+        </View>
+      )}
+      {!isHost && activeRequest?.status === 'PENDING' && (
+        <View style={styles.bottomIdle}>
+          <Btn
+            label={`Message ${activity.hostFirst}`}
+            onPress={() => navigation.navigate('RequesterChat', { planId: activity.id, requesterId: activity.hostId, name: activity.host })}
+          />
+          <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
+        </View>
+      )}
+      {!isHost && !activeRequest && !asking && !sent && (
+        <View style={styles.bottomIdle}>
+          {!!error && <Text style={styles.errorNote}>{error}</Text>}
           <Btn label={cta} onPress={() => setAsking(true)} />
           <Text style={styles.ctaNote}>{ctaNote}</Text>
         </View>
@@ -119,12 +180,10 @@ export default function Detail({ navigation, route }: Props) {
             placeholderTextColor={colors.faint}
             style={styles.textarea}
           />
+          {!!error && <Text style={styles.errorNote}>{error}</Text>}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <View style={{ flex: 1 }}>
-              <Btn
-                label="Send request"
-                onPress={() => { dispatch({ type: 'REQUEST_JOIN', id: activity.id }); setAsking(false); }}
-              />
+              <Btn label={sending ? 'Sending…' : 'Send request'} onPress={submitRequest} />
             </View>
             <Btn label="Cancel" variant="secondary" full={false} onPress={() => setAsking(false)} />
           </View>
@@ -164,6 +223,7 @@ export default function Detail({ navigation, route }: Props) {
                 </View>
               </View>
             ))}
+            {activity.going.length === 0 && <Text style={styles.emptyGoing}>Nobody yet — be the first.</Text>}
             <View style={{ marginTop: 8 }}><Btn label="Close" variant="secondary" onPress={() => setShowGoing(false)} /></View>
           </Pressable>
         </Pressable>
@@ -185,7 +245,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14,
   },
   timeLabel: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 13.5 },
-  distLabel: { color: colors.ground, opacity: 0.55, fontFamily: 'Figtree_500Medium', fontSize: 13.5 },
   title: { fontFamily: 'Figtree_700Bold', fontSize: 28, letterSpacing: -0.6, color: colors.ink },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 13 },
   tag: { backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
@@ -196,13 +255,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface,
     borderRadius: radius.inner, padding: 15, marginTop: 16, ...shadow.inner,
   },
-  hostAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  hostAvatarLabel: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 14 },
-  hostName: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 15 },
-  hostSub: { color: colors.muted, fontFamily: 'Figtree_500Medium', fontSize: 12, marginTop: 3 },
-  verifiedChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.sageBg, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 10 },
-  verifiedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.sage },
-  verifiedLabel: { color: colors.sageInk, fontFamily: 'Figtree_600SemiBold', fontSize: 10.5 },
   sectionLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.faint, marginBottom: 11 },
   goingAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
   goingLabel: { fontFamily: 'Figtree_700Bold', fontSize: 11 },
@@ -225,6 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   genderBadgeIcon: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 14 },
+  emptyGoing: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13, paddingVertical: 12 },
   specCard: { marginTop: 18, backgroundColor: colors.surface, borderRadius: radius.inner, paddingHorizontal: 16, ...shadow.inner },
   specRow: { flexDirection: 'row', gap: 14, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.lineCard },
   specKey: { width: 64, color: colors.faint, fontFamily: 'Figtree_600SemiBold', fontSize: 12 },
@@ -236,6 +289,7 @@ const styles = StyleSheet.create({
   ruleText: { flex: 1, color: colors.blushInk, fontFamily: 'Figtree_400Regular', fontSize: 13, lineHeight: 19 },
   bottomIdle: { backgroundColor: 'rgba(251,246,240,.95)', padding: 20, paddingBottom: 32, borderTopWidth: 1, borderTopColor: colors.line },
   ctaNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 11.5, textAlign: 'center', marginTop: 9 },
+  errorNote: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 12, textAlign: 'center', marginBottom: 8 },
   bottomAsk: { backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 32, ...shadow.sheet },
   askTitle: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 16 },
   askSub: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 12.5, marginTop: 5 },

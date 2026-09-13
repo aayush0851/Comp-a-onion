@@ -14,13 +14,11 @@ export type RootStackParamList = {
   Detail: { id: string };
   MyPlans: undefined;
   PlanManage: { id: string };
-  RequesterChat: { planId: string; requesterId: string; name: string };
-  RequesterProfile: { planId: string; requesterId: string };
+  RequesterChat: { planId?: string; requesterId: string; name: string };
+  RequesterProfile: { userId: string };
   MyReviews: undefined;
-  EventChats: { planId: string };
+  SentRequests: undefined;
   Create: undefined;
-  Sent: undefined;
-  Queue: undefined;
   ChatList: undefined;
   Chat: { id: string };
   Profile: undefined;

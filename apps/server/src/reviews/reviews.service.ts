@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { PUBLIC_USER_SELECT } from '../users/users.service.js';
 import type { CreateReviewDto } from './dto/create-review.dto.js';
 
 const MALICE_FLAG_THRESHOLD = 3;
@@ -62,7 +63,7 @@ export class ReviewsService {
   listReceived(userId: string) {
     return this.prisma.personReview.findMany({
       where: { revieweeId: userId },
-      include: { review: { include: { event: true, reviewer: true } } },
+      include: { review: { include: { event: true, reviewer: { select: PUBLIC_USER_SELECT } } } },
       orderBy: { id: 'desc' },
     });
   }

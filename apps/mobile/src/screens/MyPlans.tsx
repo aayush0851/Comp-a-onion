@@ -1,20 +1,55 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors } from '../theme';
+import { colors, scale } from '../theme';
 import { EmptyState, FilterChips, Header, ListRow, PlanCard, TabBar, TabKey } from '../components/widgets';
-import { costModeLabel, formatDateKey, genderRestrictionLabel } from '../data';
-import { isPlanArchived, planArchiveReason, useAppState } from '../store';
+import { costModeLabel, genderRestrictionLabel } from '../data';
+import { formatEventDate, formatEventTime, toEventCard } from '../data/eventDisplay';
+import { fromApiCostMode, fromApiGenderRestriction } from '../api/types';
+import { eventsApi, joinRequestsApi } from '../api';
+import { useAppState } from '../store';
+import type { ApiEvent } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyPlans'>;
+
+type Role = 'host' | 'approved' | 'pending';
+type MyPlanItem = { event: ApiEvent; role: Role };
 
 const FILTERS = ['Upcoming', 'Archived'] as const;
 
 export default function MyPlans({ navigation }: Props) {
   const state = useAppState();
   const [filter, setFilter] = useState<typeof FILTERS[number]>('Upcoming');
-  const plans = state.publishedPlans.filter((p) => (filter === 'Archived' ? isPlanArchived(p) : !isPlanArchived(p)));
+  const [hosted, setHosted] = useState<ApiEvent[]>([]);
+  const [joined, setJoined] = useState<MyPlanItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      setError('');
+      Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine()])
+        .then(([hostedEvents, requests]) => {
+          setHosted(hostedEvents);
+          setJoined(
+            requests
+              .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING') && jr.event && jr.event.hostId !== state.userId)
+              .map((jr) => ({ event: jr.event!, role: jr.status === 'APPROVED' ? 'approved' as const : 'pending' as const })),
+          );
+        })
+        .catch((e) => { console.error('My plans load failed', e); setError("Couldn't load your plans. Pull down to try again."); })
+        .finally(() => setLoading(false));
+    }, [state.userId]),
+  );
+
+  const hostedItems: MyPlanItem[] = hosted.map((event) => ({ event, role: 'host' as const }));
+  const archived = hostedItems.filter((i) => i.event.isArchived);
+  const upcoming = [...hostedItems.filter((i) => !i.event.isArchived), ...joined.filter((i) => !i.event.isArchived)]
+    .sort((a, b) => a.event.date.localeCompare(b.event.date));
+  const items = filter === 'Archived' ? archived : upcoming;
 
   const onTab = (key: TabKey) => {
     if (key === 'explore') navigation.navigate('Board');
@@ -27,8 +62,8 @@ export default function MyPlans({ navigation }: Props) {
       <Header
         variant="home"
         title="Your plans"
-        subtitle="Everything you've posted, in one place."
-        action="New plan"
+        subtitle="Everything you're hosting or in on, in one place."
+        action={!loading && !error && filter === 'Upcoming' && items.length === 0 ? undefined : 'New plan'}
         onAction={() => navigation.navigate('Create')}
       />
       <View style={{ paddingHorizontal: 20, paddingBottom: 16 }}>
@@ -39,66 +74,83 @@ export default function MyPlans({ navigation }: Props) {
         />
       </View>
 
-      {plans.length === 0 ? (
+      {loading ? (
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
+      ) : !!error ? (
+        <Text style={[scale.meta, { textAlign: 'center', paddingTop: 40 }]}>{error}</Text>
+      ) : items.length === 0 ? (
         <View style={{ paddingTop: 40 }}>
           <EmptyState
             shape="square"
             tone="peach"
-            title={filter === 'Archived' ? 'Nothing archived' : 'Nothing posted yet'}
+            title={filter === 'Archived' ? 'Nothing archived' : 'Nothing coming up'}
             body={filter === 'Archived'
-              ? 'Plans land here once they wrap up or you archive them.'
-              : "One line about what you're doing tonight is enough. It goes out to verified people nearby."}
+              ? 'Plans land here once you archive them.'
+              : "Post a plan or ask to join one — either way, it'll show up here."}
             cta={filter === 'Archived' ? undefined : 'Post a plan'}
             onPressCta={() => navigation.navigate('Create')}
           />
         </View>
       ) : filter === 'Upcoming' ? (
         <ScrollView contentContainerStyle={styles.cards}>
-          {plans.map((p) => {
-            const when = p.date ? `${formatDateKey(p.date)}${p.time ? ` · ${p.time}` : ''}` : p.time ?? 'No time set';
-            const pending = p.approvalRequired ? p.requesters.filter((r) => !p.decided[r.id]).length : 0;
-            const joined = p.approvalRequired ? Object.values(p.decided).filter((d) => d === 'in').length : p.requesters.length;
-            const shapeLabel = p.shape === 'duo' ? 'Just me + one' : genderRestrictionLabel(p.genderRestriction);
+          {items.map(({ event: e, role }) => {
+            const isHost = role === 'host';
+            const card = toEventCard(e);
+            const time = formatEventTime(e.time);
+            const shapeLabel = e.seatsTotal <= 2 ? 'Just me + one' : genderRestrictionLabel(fromApiGenderRestriction(e.genderRestriction));
+            const badge = isHost
+              ? (e.entryMode === 'APPROVE' ? 'You approve' : 'Open seats')
+              : role === 'approved' ? "You're in" : 'Waiting on host';
+            const badgeTone = isHost
+              ? (e.entryMode === 'APPROVE' ? 'light' : 'sage')
+              : role === 'approved' ? 'sage' : 'light';
+            const cta = isHost ? 'Manage plan' : role === 'approved' ? 'Open chat' : 'Requested';
+            const goTo = () => navigation.navigate(isHost ? 'PlanManage' : 'Detail', { id: e.id });
+            const goToCta = () => {
+              if (isHost) navigation.navigate('PlanManage', { id: e.id });
+              else if (role === 'approved') navigation.navigate('Chat', { id: e.id });
+              else navigation.navigate('Detail', { id: e.id });
+            };
             return (
               <PlanCard
-                key={p.id}
+                key={e.id}
                 compact
-                title={p.title}
-                blurb={[p.venue, when].filter(Boolean).join(' · ')}
-                venue={`YOUR PLAN${p.venue ? ` · ${p.venue.toUpperCase()}` : ''}`}
-                time={p.time ?? 'Any'}
-                dist={when}
-                badge={pending > 0 ? `${pending} asking` : p.approvalRequired ? 'You approve' : 'Open seats'}
-                badgeTone={pending > 0 ? 'primary' : p.approvalRequired ? 'light' : 'sage'}
-                tag={costModeLabel(p.costMode)}
+                title={e.title}
+                blurb={card.venueLine}
+                venue={isHost ? `YOUR PLAN${e.venue ? ` · ${e.venue.toUpperCase()}` : ''}` : card.slot}
+                time={time}
+                dist=""
+                badge={badge}
+                badgeTone={badgeTone}
+                tag={costModeLabel(fromApiCostMode(e.costMode))}
                 kind={shapeLabel}
-                filled={joined}
-                total={p.approvalRequired ? p.requesters.length || 1 : Math.max(joined, 1)}
-                cta={pending > 0 ? `Review ${pending} request${pending === 1 ? '' : 's'}` : 'Manage plan'}
-                ctaVariant={pending > 0 ? 'dark' : 'secondary'}
-                host="You"
-                hostInitials="YO"
-                onPress={() => navigation.navigate('PlanManage', { id: p.id })}
-                onPressCta={() => navigation.navigate('PlanManage', { id: p.id })}
+                filled={e.seatsFilled}
+                total={e.seatsTotal}
+                cta={cta}
+                ctaVariant="secondary"
+                host={isHost ? 'You' : card.host}
+                hostInitials={isHost ? 'YO' : card.hostInitials}
+                hostPhoto={isHost ? e.host.profilePicture : card.hostPhoto}
+                onPress={goTo}
+                onPressCta={goToCta}
               />
             );
           })}
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          {plans.map((p) => {
-            const when = p.date ? `${formatDateKey(p.date)}${p.time ? ` · ${p.time}` : ''}` : p.time ?? 'No time set';
-            const joined = p.approvalRequired ? Object.values(p.decided).filter((d) => d === 'in').length : p.requesters.length;
+          {items.map(({ event: e }) => {
+            const when = `${formatEventDate(e.date)} · ${formatEventTime(e.time)}`;
             return (
               <ListRow
-                key={p.id}
-                title={p.title}
-                meta={[when, p.venue ?? undefined].filter(Boolean).join(' · ')}
-                initials={String(joined)}
+                key={e.id}
+                title={e.title}
+                meta={[when, e.venue ?? undefined].filter(Boolean).join(' · ')}
+                initials={String(e.seatsFilled)}
                 tone="sage"
                 chevron
-                right={planArchiveReason(p)}
-                onPress={() => navigation.navigate('PlanManage', { id: p.id })}
+                right="Archived by you"
+                onPress={() => navigation.navigate('PlanManage', { id: e.id })}
               />
             );
           })}

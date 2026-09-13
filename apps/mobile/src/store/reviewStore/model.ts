@@ -1,4 +1,3 @@
-import { RECEIVED_REVIEWS } from '../../data';
 import type { Action } from '../actions';
 import type { AppState } from '../index';
 import type { ReviewState } from './schema';
@@ -15,11 +14,6 @@ export const reviewInitialState: ReviewState = {
   reviewedPlans: [],
   reviewReplies: {},
 };
-
-export function myAverageRating(): number {
-  const sum = RECEIVED_REVIEWS.reduce((acc, r) => acc + r.rating, 0);
-  return RECEIVED_REVIEWS.length ? sum / RECEIVED_REVIEWS.length : 0;
-}
 
 export function reviewReducer(state: AppState, action: Action): AppState {
   switch (action.type) {

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -14,6 +15,7 @@ import { DeviceTokensModule } from './device-tokens/device-tokens.module.js';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,

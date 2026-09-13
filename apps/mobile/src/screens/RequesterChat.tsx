@@ -1,40 +1,61 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, shadow } from '../theme';
 import { Header } from '../components/widgets';
-import { useAppState, useAppDispatch } from '../store';
+import { useAppState } from '../store';
+import { chatApi } from '../api';
+import { connectSse } from '../realtime';
+import type { ApiChatMessage } from '../api/chat';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterChat'>;
 
+function appendUnique(prev: ApiChatMessage[], msg: ApiChatMessage): ApiChatMessage[] {
+  return prev.some((m) => m.id === msg.id) ? prev : [...prev, msg];
+}
+
 export default function RequesterChat({ navigation, route }: Props) {
   const state = useAppState();
-  const dispatch = useAppDispatch();
-  const [draft, setDraft] = useState('');
   const { planId, requesterId, name } = route.params;
-  const msgs = state.requesterMsgs[requesterId] ?? [];
-  const plan = state.publishedPlans.find((p) => p.id === planId);
-  const requester = plan?.requesters.find((r) => r.id === requesterId);
-  const subtitle = requester?.rating
-    ? `★ ${requester.rating.toFixed(1)} · ${requester.ratingCount} plans · tap for profile`
-    : 'tap for profile';
+  const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
+  const [draft, setDraft] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      chatApi.listDmThread(requesterId).then(setMsgs);
+      const disconnect = connectSse<ApiChatMessage>(
+        `/users/${requesterId}/dm/stream`,
+        (msg) => setMsgs((prev) => appendUnique(prev, msg)),
+      );
+      return disconnect;
+    }, [requesterId]),
+  );
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    const msg = await chatApi.sendDm(requesterId, text);
+    setMsgs((prev) => appendUnique(prev, msg));
+  };
 
   return (
     <View style={styles.screen}>
       <Header
         variant="convo"
         title={name}
-        subtitle={subtitle}
+        subtitle="tap for profile"
         action="Profile"
-        onAction={() => navigation.navigate('RequesterProfile', { planId, requesterId })}
-        onBack={() => navigation.navigate('PlanManage', { id: planId })}
+        onAction={() => navigation.navigate('RequesterProfile', { userId: requesterId })}
+        onBack={() => (planId ? navigation.navigate('PlanManage', { id: planId }) : navigation.navigate('ChatList'))}
       />
 
-      {!!plan && (
+      {!!planId && (
         <Pressable onPress={() => navigation.navigate('PlanManage', { id: planId })} style={styles.planRow}>
-          <Text style={styles.planLabel} numberOfLines={1}>{plan.title}</Text>
+          <Text style={styles.planLabel} numberOfLines={1}>Back to the plan</Text>
           <Text style={styles.planGoto}>›</Text>
         </Pressable>
       )}
@@ -46,13 +67,16 @@ export default function RequesterChat({ navigation, route }: Props) {
             <Text style={styles.emptyNote}>No messages yet — say hi to start the conversation.</Text>
           </View>
         )}
-        {msgs.map((m) => (
-          <View key={m.id} style={{ alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
-            <View style={[styles.bubble, m.mine ? styles.bubbleMine : styles.bubbleOther]}>
-              <Text style={[styles.bubbleText, { color: m.mine ? '#fff' : colors.ink }]}>{m.text}</Text>
+        {msgs.map((m) => {
+          const mine = m.authorId === state.userId;
+          return (
+            <View key={m.id} style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
+              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
+                <Text style={[styles.bubbleText, { color: mine ? '#fff' : colors.ink }]}>{m.text}</Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <View style={styles.composer}>
@@ -63,10 +87,7 @@ export default function RequesterChat({ navigation, route }: Props) {
           placeholderTextColor={colors.faint}
           style={styles.input}
         />
-        <Pressable
-          onPress={() => { dispatch({ type: 'SEND_REQUESTER_MSG', requesterId, text: draft }); setDraft(''); }}
-          style={styles.sendBtn}
-        >
+        <Pressable onPress={send} style={styles.sendBtn}>
           <Text style={styles.sendLabel}>Send</Text>
         </Pressable>
       </View>

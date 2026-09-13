@@ -1,27 +1,8 @@
-import type { CostMode, GenderRestriction, QueueRequest } from '../../data';
+import type { CostMode, GenderRestriction } from '../../data';
 
 export type Shape = 'duo' | 'group' | null;
 
-export type PublishedPlan = {
-  id: string;
-  title: string;
-  tags: string[];
-  date: string | null;
-  time: string | null;
-  venue: string | null;
-  shape: Shape;
-  size: number;
-  approvalRequired: boolean;
-  genderRestriction: GenderRestriction;
-  costMode: CostMode | null;
-  createdAt: number;
-  requesters: QueueRequest[];
-  decided: Record<string, 'in' | 'out'>;
-  archived: boolean;
-};
-
 export type PlansState = {
-  requested: string[];
   filter: 0 | 1 | 2;
 
   // create-flow draft
@@ -36,15 +17,9 @@ export type PlansState = {
   approvalRequired: boolean;
   genderRestriction: GenderRestriction;
   costMode: CostMode | null;
-  publishedPlans: PublishedPlan[];
-
-  // host queue
-  queue: QueueRequest[];
-  decided: Record<string, 'in' | 'out'>;
 };
 
 export type PlansAction =
-  | { type: 'REQUEST_JOIN'; id: string }
   | { type: 'SET_FILTER'; filter: 0 | 1 | 2 }
   | { type: 'SET_STEP'; step: 0 | 1 | 2 }
   | { type: 'SET_TITLE'; title: string }
@@ -58,8 +33,4 @@ export type PlansAction =
   | { type: 'SET_APPROVAL_REQUIRED'; value: boolean }
   | { type: 'SET_GENDER_RESTRICTION'; genderRestriction: GenderRestriction }
   | { type: 'TOGGLE_COST_MODE'; costMode: CostMode }
-  | { type: 'DECIDE'; id: string; decision: 'in' | 'out' }
-  | { type: 'RESET_CREATE' }
-  | { type: 'PUBLISH_PLAN' }
-  | { type: 'DECIDE_REQUESTER'; planId: string; requesterId: string; decision: 'in' | 'out' }
-  | { type: 'ARCHIVE_PLAN'; planId: string };
+  | { type: 'RESET_CREATE' };

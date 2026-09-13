@@ -1,30 +1,58 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, shadow } from '../theme';
 import { Header } from '../components/widgets';
-import { ACTIVITIES } from '../data';
-import { useAppState, useAppDispatch } from '../store';
+import { formatEventTime } from '../data/eventDisplay';
+import { useAppState } from '../store';
+import { chatApi, eventsApi } from '../api';
+import { connectSse } from '../realtime';
+import type { ApiChatMessage } from '../api/chat';
+import type { ApiEvent } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
+function appendUnique(prev: ApiChatMessage[], msg: ApiChatMessage): ApiChatMessage[] {
+  return prev.some((m) => m.id === msg.id) ? prev : [...prev, msg];
+}
+
 export default function Chat({ navigation, route }: Props) {
   const state = useAppState();
-  const dispatch = useAppDispatch();
+  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
   const [draft, setDraft] = useState('');
-  const activity = ACTIVITIES.find((a) => a.id === route.params.id) ?? ACTIVITIES[0];
-  const msgs = activity.id === 'ramen' ? state.msgs : [];
+
+  useFocusEffect(
+    useCallback(() => {
+      eventsApi.getEvent(route.params.id).then(setEvent);
+      chatApi.listEventMessages(route.params.id).then(setMsgs);
+      const disconnect = connectSse<ApiChatMessage>(
+        `/events/${route.params.id}/messages/stream`,
+        (msg) => setMsgs((prev) => appendUnique(prev, msg)),
+      );
+      return disconnect;
+    }, [route.params.id]),
+  );
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    const msg = await chatApi.sendEventMessage(route.params.id, text);
+    setMsgs((prev) => appendUnique(prev, msg));
+  };
 
   return (
     <View style={styles.screen}>
       <Header
         variant="convo"
-        title={activity.title}
-        subtitle={`${activity.seatsFilled} going · ${activity.time} today`}
+        title={event?.title ?? '…'}
+        subtitle={event ? `${event.seatsFilled} going · ${formatEventTime(event.time)}` : ''}
         action="Plan"
-        onAction={() => navigation.navigate('Detail', { id: activity.id })}
+        onAction={() => navigation.navigate('Detail', { id: route.params.id })}
         onBack={() => navigation.navigate('ChatList')}
       />
 
@@ -35,21 +63,23 @@ export default function Chat({ navigation, route }: Props) {
             <Text style={styles.emptyNote}>No messages yet — say hi to start the conversation.</Text>
           </View>
         )}
-        {msgs.map((m) => (
-          <View key={m.id} style={{ alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
-            {!m.mine && (
-              <View style={styles.authorRow}>
-                {m.host && (
-                  <View style={styles.hostBadge}><Text style={styles.hostBadgeIcon}>★</Text></View>
-                )}
-                <Text style={styles.author}>{m.author}</Text>
+        {msgs.map((m) => {
+          const mine = m.authorId === state.userId;
+          const host = event ? m.authorId === event.hostId : false;
+          return (
+            <View key={m.id} style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
+              {!mine && (
+                <View style={styles.authorRow}>
+                  {host && <View style={styles.hostBadge}><Text style={styles.hostBadgeIcon}>★</Text></View>}
+                  <Text style={styles.author}>{m.author.name ?? 'Someone'}</Text>
+                </View>
+              )}
+              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
+                <Text style={[styles.bubbleText, { color: mine ? '#fff' : colors.ink }]}>{m.text}</Text>
               </View>
-            )}
-            <View style={[styles.bubble, m.mine ? styles.bubbleMine : styles.bubbleOther]}>
-              <Text style={[styles.bubbleText, { color: m.mine ? '#fff' : colors.ink }]}>{m.text}</Text>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <View style={styles.composer}>
@@ -60,10 +90,7 @@ export default function Chat({ navigation, route }: Props) {
           placeholderTextColor={colors.faint}
           style={styles.input}
         />
-        <Pressable
-          onPress={() => { dispatch({ type: 'SEND_MSG', text: draft }); setDraft(''); }}
-          style={styles.sendBtn}
-        >
+        <Pressable onPress={send} style={styles.sendBtn}>
           <Text style={styles.sendLabel}>Send</Text>
         </Pressable>
       </View>

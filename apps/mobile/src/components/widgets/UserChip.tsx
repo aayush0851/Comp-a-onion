@@ -1,11 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, Tone, tones } from '../../theme';
 
 export function UserChip({
-  name, initials, rating, count, verified = true, size = 'm', tone = 'peach', meta, onPress,
+  name, initials, photo, rating, count, verified = true, size = 'm', tone = 'peach', meta, onPress,
 }: {
   name: string;
   initials: string;
+  photo?: string | null;
   rating?: number | null;
   count?: number | null;
   verified?: boolean;
@@ -20,9 +21,13 @@ export function UserChip({
   const t = tones[tone];
   return (
     <Pressable onPress={onPress} style={styles.userChip}>
-      <View style={{ width: av, height: av, minWidth: av, borderRadius: av / 2, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: ifs, color: t.fg }}>{initials}</Text>
-      </View>
+      {photo ? (
+        <Image source={{ uri: photo }} style={{ width: av, height: av, minWidth: av, borderRadius: av / 2 }} />
+      ) : (
+        <View style={{ width: av, height: av, minWidth: av, borderRadius: av / 2, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: ifs, color: t.fg }}>{initials}</Text>
+        </View>
+      )}
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text numberOfLines={1} style={{ fontFamily: 'Figtree_700Bold', fontSize: nfs, letterSpacing: -0.2, color: colors.ink, flexShrink: 1 }}>{name}</Text>

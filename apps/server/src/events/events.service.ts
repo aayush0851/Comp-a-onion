@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GenderRestriction, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PUBLIC_USER_SELECT } from '../users/users.service.js';
@@ -8,14 +9,20 @@ import type { BoardQueryDto } from './dto/board-query.dto.js';
 
 const KM_PER_DEGREE = 111;
 
+// ponytail: off for now per product ask, flip to true to bring proximity filtering back.
+const PROXIMITY_FILTER_ENABLED = false;
+
 function timeStringToDate(time: string): Date {
   return new Date(`1970-01-01T${time}:00.000Z`);
 }
 
 function dateRangeForFilter(filter?: 0 | 1 | 2): { gte: Date; lt: Date } | undefined {
   if (filter === undefined) return undefined;
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // UTC-anchored to match how event dates are parsed on creation (new Date("YYYY-MM-DD")
+  // is UTC midnight) — anchoring this to local server time instead caused a mismatch
+  // that spilled "today" events into the "tomorrow" bucket.
+  const now = new Date();
+  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
   if (filter === 0) {
     const tomorrow = new Date(startOfToday);
@@ -34,8 +41,9 @@ function dateRangeForFilter(filter?: 0 | 1 | 2): { gte: Date; lt: Date } | undef
   return { gte: startOfToday, lt: weekOut };
 }
 
-const EVENT_WITH_ATTENDEES = {
+export const EVENT_WITH_ATTENDEES = {
   include: {
+    host: { select: PUBLIC_USER_SELECT },
     joinRequests: {
       where: { status: 'APPROVED' as const },
       include: { user: { select: PUBLIC_USER_SELECT } },
@@ -45,7 +53,7 @@ const EVENT_WITH_ATTENDEES = {
 
 type EventWithAttendees = Prisma.EventGetPayload<typeof EVENT_WITH_ATTENDEES>;
 
-function shapeEvent(event: EventWithAttendees) {
+export function shapeEvent(event: EventWithAttendees) {
   const { joinRequests, ...rest } = event;
   return {
     ...rest,
@@ -56,10 +64,13 @@ function shapeEvent(event: EventWithAttendees) {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async create(hostId: string, dto: CreateEventDto) {
-    return this.prisma.event.create({
+    const event = await this.prisma.event.create({
       data: {
         hostId,
         title: dto.title,
@@ -73,6 +84,10 @@ export class EventsService {
         costMode: dto.costMode,
       },
     });
+    // Board listeners just re-fetch on this signal (gender/date filtering already
+    // lives in findBoard), so no need to shape or target the payload here.
+    this.events.emit('event.created', {});
+    return event;
   }
 
   async findBoard(requesterId: string, query: BoardQueryDto) {
@@ -91,7 +106,7 @@ export class EventsService {
       where.genderRestriction = GenderRestriction.ANYONE;
     }
 
-    if (requester.latitude != null && requester.longitude != null) {
+    if (PROXIMITY_FILTER_ENABLED && requester.latitude != null && requester.longitude != null) {
       const delta = requester.proximityKm / KM_PER_DEGREE;
       where.host = {
         latitude: { gte: requester.latitude - delta, lte: requester.latitude + delta },

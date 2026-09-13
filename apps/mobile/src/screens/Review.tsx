@@ -1,48 +1,86 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, scale, shadow } from '../theme';
 import { Chip } from '../components/ui';
 import { Btn, Header } from '../components/widgets';
 import { PEOPLE_TAGS, SETUP_AXES, SETUP_TAGS, SETUP_WORDS } from '../data';
+import { initialsOf } from '../data/eventDisplay';
 import { useAppState, useAppDispatch } from '../store';
+import { eventsApi, reviewsApi, ApiError } from '../api';
+import type { ApiEvent, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
 const TITLES = ['How did the plan go?', 'And the people who came?', "That's everything."];
 const LEDES = [
   'This becomes what people see on the plan once it settles. Nobody is being marked out of five yet.',
-  "She's rating you at the same time. Neither of you sees anything until both are in.",
+  "They're being rated at the same time. Neither of you sees anything until both are in.",
   'Reviews unlock for everyone at the same time tomorrow morning, so nobody can wait to see yours before writing theirs.',
 ];
-const CTAS = ['Next — the people', 'Next — check it over', 'Submit both reviews'];
+const CTAS = ['Next — the people', 'Next — check it over', 'Submit review'];
 const RATING_WORDS = ['Not great', 'It was okay', 'Fine', 'Good', "Great — I'd go again"];
 
 export default function Review({ navigation, route }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { planId } = route.params;
-  const plan = state.publishedPlans.find((p) => p.id === planId);
+  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!plan) {
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      eventsApi.getEvent(planId).then(setEvent).finally(() => setLoading(false));
+    }, [planId]),
+  );
+
+  if (loading || !event) {
     return (
       <View style={styles.screen}>
-        <Header variant="stack" title="Nothing to review" onBack={() => navigation.navigate('Profile')} />
+        <Header variant="stack" title="Loading…" onBack={() => navigation.navigate('Profile')} />
+        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
       </View>
     );
   }
 
-  const attendees = plan.requesters.filter((r) => !plan.approvalRequired || plan.decided[r.id] === 'in');
-  const setupScores = state.setupScores[plan.id] ?? {};
-  const setupTags = state.setupTags[plan.id] ?? [];
+  const attendees: ApiUser[] = event.going.filter((u) => u.id !== state.userId);
+  const setupScores = state.setupScores[planId] ?? {};
+  const setupTags = state.setupTags[planId] ?? [];
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      await reviewsApi.submitReview(planId, {
+        setupScores,
+        setupTags,
+        personReviews: attendees.map((a) => ({
+          revieweeId: a.id,
+          tags: state.peopleTags[a.id] ?? [],
+          rating: state.personRatings[a.id] || undefined,
+          note: state.personNotes[a.id]?.trim() || undefined,
+          meetAgain: !!state.meetAgain[a.id],
+          flagged: !!state.flagged[a.id],
+        })),
+      });
+      dispatch({ type: 'SUBMIT_REVIEW', planId });
+      dispatch({ type: 'SET_RV_STEP', step: 0 });
+      navigation.navigate('Filed');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't submit. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const next = () => {
     if (state.rvStep < 2) dispatch({ type: 'SET_RV_STEP', step: (state.rvStep + 1) as 0 | 1 | 2 });
-    else {
-      dispatch({ type: 'SUBMIT_REVIEW', planId: plan.id });
-      dispatch({ type: 'SET_RV_STEP', step: 0 });
-      navigation.navigate('Filed');
-    }
+    else submit();
   };
 
   const peopleWritten = attendees.filter((a) => (state.peopleTags[a.id]?.length ?? 0) > 0 || state.meetAgain[a.id]).length;
@@ -54,7 +92,7 @@ export default function Review({ navigation, route }: Props) {
         variant="stack"
         stepsTotal={3}
         stepsCurrent={state.rvStep + 1}
-        eyebrow={`Part ${state.rvStep + 1} of 3 · ${plan.title}`}
+        eyebrow={`Part ${state.rvStep + 1} of 3 · ${event.title}`}
         title={TITLES[state.rvStep]}
         subtitle={LEDES[state.rvStep]}
         onBack={() => (state.rvStep === 0 ? navigation.navigate('Profile') : dispatch({ type: 'SET_RV_STEP', step: (state.rvStep - 1) as 0 | 1 | 2 }))}
@@ -77,7 +115,7 @@ export default function Review({ navigation, route }: Props) {
                       {[1, 2, 3, 4, 5].map((n) => (
                         <Pressable
                           key={n}
-                          onPress={() => dispatch({ type: 'SET_SETUP_SCORE', planId: plan.id, axis: ax.key, score: n })}
+                          onPress={() => dispatch({ type: 'SET_SETUP_SCORE', planId, axis: ax.key, score: n })}
                           style={[styles.scoreDot, n <= score && { backgroundColor: colors.clay, borderColor: colors.clay }]}
                         />
                       ))}
@@ -89,7 +127,7 @@ export default function Review({ navigation, route }: Props) {
             <Text style={[styles.sub, { marginTop: 16 }]}>And in words</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {SETUP_TAGS.map((t) => (
-                <Chip key={t} label={t} selected={setupTags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_SETUP_TAG', planId: plan.id, tag: t })} />
+                <Chip key={t} label={t} selected={setupTags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_SETUP_TAG', planId, tag: t })} />
               ))}
             </View>
           </View>
@@ -106,14 +144,8 @@ export default function Review({ navigation, route }: Props) {
               return (
                 <View key={a.id} style={styles.personCard}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={styles.personAvatar}><Text style={styles.personAvatarLabel}>{a.initials}</Text></View>
-                    <Text style={styles.personName}>{a.name}</Text>
-                    <View style={{ flex: 1 }} />
-                    {a.isNew && (
-                      <View style={styles.roleChip}>
-                        <Text style={styles.roleChipLabel}>New here</Text>
-                      </View>
-                    )}
+                    <View style={styles.personAvatar}><Text style={styles.personAvatarLabel}>{initialsOf(a.name)}</Text></View>
+                    <Text style={styles.personName}>{a.name ?? 'Someone'}</Text>
                   </View>
 
                   <View style={{ alignItems: 'center', marginTop: 14 }}>
@@ -172,7 +204,7 @@ export default function Review({ navigation, route }: Props) {
           <View>
             <View style={styles.card}>
               {[
-                ['Setup review', `Goes to "${plan.title}"`],
+                ['Setup review', `Goes to "${event.title}"`],
                 ['People reviews', `${peopleWritten} of ${attendees.length} written`],
                 ['Would meet again', `${meetAgainCount} of ${attendees.length}, kept private`],
               ].map(([k, v], i) => (
@@ -188,13 +220,14 @@ export default function Review({ navigation, route }: Props) {
                 Your star rating and note go straight to their profile. Your tags on people, only once three or more people have said the same thing.
               </Text>
             </View>
+            {!!error && <Text style={styles.errorNote}>{error}</Text>}
             <Text style={[scale.accent, { marginTop: 16 }]}>You'll get theirs at the same time. No editing after that.</Text>
           </View>
         )}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Btn label={CTAS[state.rvStep]} onPress={next} />
+        <Btn label={submitting ? 'Submitting…' : CTAS[state.rvStep]} onPress={next} />
       </View>
     </View>
   );
@@ -213,8 +246,6 @@ const styles = StyleSheet.create({
   personAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.neutralAvatar, alignItems: 'center', justifyContent: 'center' },
   personAvatarLabel: { color: colors.inkSecondary, fontFamily: 'Figtree_700Bold', fontSize: 12 },
   personName: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 16 },
-  roleChip: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: colors.sageBg },
-  roleChipLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11, color: colors.sageInk },
   ratingWord: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: colors.clayPressed, marginTop: 9 },
   noteInput: {
     marginTop: 12, backgroundColor: colors.ground, borderRadius: 14, padding: 12, minHeight: 56,
@@ -230,5 +261,6 @@ const styles = StyleSheet.create({
   publishCard: { backgroundColor: colors.blush, borderRadius: radius.inner, padding: 16, marginTop: 12 },
   publishTitle: { color: colors.blushInk, fontFamily: 'Figtree_700Bold', fontSize: 13.5, marginBottom: 6 },
   publishBody: { color: colors.blushInk, fontFamily: 'Figtree_400Regular', fontSize: 12.5, lineHeight: 18 },
+  errorNote: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 12, textAlign: 'center', marginTop: 12 },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: 'rgba(251,246,240,.95)' },
 });
