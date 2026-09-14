@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -82,17 +82,20 @@ export default function RequesterProfile({ navigation, route }: Props) {
           </View>
         )}
 
-        {highlightCount > 0 && (
-          <>
-            <Text style={styles.highlightsLabel}>Peek into their personality</Text>
-            <View style={styles.highlightsGrid}>
-              {Array.from({ length: highlightCount }).map((_, i) => (
-                <View key={i} style={[styles.highlightTile, { backgroundColor: TILE_TONES[i % TILE_TONES.length] }]}>
-                  <Feather name="image" size={22} color={colors.clayPressed} />
-                </View>
-              ))}
-            </View>
-          </>
+        <Text style={styles.highlightsLabel}>Peek into their personality</Text>
+        {highlightCount > 0 ? (
+          <View style={styles.highlightsGrid}>
+            {user.highlights.slice(0, highlightCount).map((uri, i) => (
+              <View key={i} style={[styles.highlightTile, { backgroundColor: TILE_TONES[i % TILE_TONES.length] }]}>
+                <Image source={{ uri }} style={styles.highlightImage} resizeMode="cover" />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Feather name="image" size={38} color={colors.faint} />
+            <Text style={[styles.emptyText, { marginTop: 10 }]}>No highlights yet.</Text>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -106,7 +109,8 @@ const styles = StyleSheet.create({
   name: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 19, letterSpacing: -0.4 },
   highlightsLabel: { fontFamily: 'Newsreader_400Regular_Italic', fontSize: 15, color: colors.muted, paddingHorizontal: 4 },
   highlightsGrid: { flexDirection: 'row', gap: 10 },
-  highlightTile: { flex: 1, aspectRatio: 3 / 4, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center' },
+  highlightTile: { flex: 1, aspectRatio: 3 / 4, borderRadius: radius.tile, overflow: 'hidden' },
+  highlightImage: { width: '100%', height: '100%' },
   card: { backgroundColor: colors.surface, borderRadius: radius.inner, padding: 17, ...shadow.card },
   sectionLabel: {
     fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase',
@@ -116,4 +120,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14,
   },
   wordLabel: { color: colors.blushInk, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36 },
+  emptyText: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13.5 },
 });

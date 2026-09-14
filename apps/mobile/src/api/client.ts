@@ -42,7 +42,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  // Nest sends an empty body (not the string "null") when a handler returns
+  // null/undefined, e.g. a "does this exist" lookup with nothing found.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const get = <T>(path: string) => apiFetch<T>(path);
