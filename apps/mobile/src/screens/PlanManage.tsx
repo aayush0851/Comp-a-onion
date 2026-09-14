@@ -19,20 +19,38 @@ export default function PlanManage({ navigation, route }: Props) {
   const [pending, setPending] = useState<ApiJoinRequest[]>([]);
   const [reviewed, setReviewed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [deciding, setDeciding] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
+    setError(false);
     Promise.all([
       eventsApi.getEvent(route.params.id),
       joinRequestsApi.listForHost(route.params.id),
       reviewsApi.hasReviewed(route.params.id),
     ])
       .then(([e, jrs, mine]) => { setEvent(e); setPending(jrs); setReviewed(!!mine); })
+      .catch((e) => { console.error('PlanManage load failed', e); setError(true); })
       .finally(() => setLoading(false));
   }, [route.params.id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <Header variant="stack" title="Your plan" onBack={() => navigation.navigate('MyPlans')} />
+        <View style={styles.empty}>
+          <Feather name="alert-circle" size={38} color={colors.faint} />
+          <Text style={[styles.emptyText, { marginTop: 10 }]}>Couldn't load this plan.</Text>
+          <View style={{ marginTop: 16, paddingHorizontal: 40, width: '100%' }}>
+            <Btn label="Try again" variant="secondary" onPress={load} />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   if (loading || !event) {
     return (
