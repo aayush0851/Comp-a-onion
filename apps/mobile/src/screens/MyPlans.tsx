@@ -128,6 +128,7 @@ export default function MyPlans({ navigation }: Props) {
                 total={e.seatsTotal}
                 cta={cta}
                 ctaVariant="secondary"
+                youSignedUp={role === 'approved'}
                 host={isHost ? 'You' : card.host}
                 hostInitials={isHost ? 'YO' : card.hostInitials}
                 hostPhoto={isHost ? e.host.profilePicture : card.hostPhoto}
