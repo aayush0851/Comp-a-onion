@@ -49,6 +49,7 @@ export type ApiEvent = {
   isArchived: boolean;
   createdAt: string;
   seatsFilled: number;
+  isFull: boolean;
   going: ApiUser[];
 };
 

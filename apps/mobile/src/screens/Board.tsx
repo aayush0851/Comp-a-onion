@@ -83,13 +83,16 @@ export default function Board({ navigation }: Props) {
           {cards.map((c) => {
             const isHost = c.hostId === state.userId;
             const myRequest = myRequests.get(c.id);
+            const isBlockedByCapacity = c.isFull && !isHost && !myRequest;
             const cta = isHost
               ? 'Manage plan'
               : myRequest?.status === 'APPROVED'
                 ? 'Open chat'
                 : myRequest?.status === 'PENDING'
                   ? 'Requested'
-                  : c.entry === 'open' ? 'Take a seat' : 'Ask to join';
+                  : isBlockedByCapacity
+                    ? 'Full'
+                    : c.entry === 'open' ? 'Take a seat' : 'Ask to join';
             return (
               <PlanCard
                 key={c.id}
@@ -105,6 +108,9 @@ export default function Board({ navigation }: Props) {
                 filled={c.seatsFilled}
                 total={c.seatsTotal}
                 cta={cta}
+                ctaVariant={isBlockedByCapacity ? 'disabled' : 'primary'}
+                disabled={isBlockedByCapacity}
+                youSignedUp={myRequest?.status === 'APPROVED'}
                 host={c.host}
                 hostInitials={c.hostInitials}
                 hostPhoto={c.hostPhoto}

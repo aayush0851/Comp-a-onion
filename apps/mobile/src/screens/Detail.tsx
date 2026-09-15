@@ -164,8 +164,17 @@ export default function Detail({ navigation, route }: Props) {
       {!isHost && !activeRequest && !asking && !sent && (
         <View style={styles.bottomIdle}>
           {!!error && <Text style={styles.errorNote}>{error}</Text>}
-          <Btn label={cta} onPress={() => setAsking(true)} />
-          <Text style={styles.ctaNote}>{ctaNote}</Text>
+          {activity.isFull ? (
+            <>
+              <Btn label="Full" variant="disabled" />
+              <Text style={styles.ctaNote}>This plan filled up — no seats left.</Text>
+            </>
+          ) : (
+            <>
+              <Btn label={cta} onPress={() => setAsking(true)} />
+              <Text style={styles.ctaNote}>{ctaNote}</Text>
+            </>
+          )}
         </View>
       )}
       {asking && !sent && (

@@ -60,6 +60,7 @@ export type EventCard = {
   entry: 'open' | 'approve';
   seatsFilled: number;
   seatsTotal: number;
+  isFull: boolean;
   shapeLabel: 'Duo' | 'Table';
   tags: string[];
   when: string;
@@ -95,6 +96,7 @@ export function toEventCard(event: ApiEvent): EventCard {
     entry,
     seatsFilled: event.seatsFilled,
     seatsTotal: event.seatsTotal,
+    isFull: event.isFull,
     shapeLabel: event.seatsTotal <= 2 ? 'Duo' : 'Table',
     tags: event.tags,
     when: `${time} · ${dateLabel}${entry === 'approve' ? ` — ${hostFirst} waits ten minutes, not more` : ' — first come, no queue'}`,

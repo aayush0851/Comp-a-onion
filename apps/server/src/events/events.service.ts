@@ -58,6 +58,7 @@ export function shapeEvent(event: EventWithAttendees) {
   return {
     ...rest,
     seatsFilled: joinRequests.length,
+    isFull: joinRequests.length >= rest.seatsTotal,
     going: joinRequests.map((jr) => jr.user),
   };
 }
