@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
@@ -52,10 +52,16 @@ function describe(n: ApiNotification): React.ReactNode {
 export default function Notifications({ navigation }: Props) {
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     notificationsApi.listNotifications().then(setItems).finally(() => setLoading(false));
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    notificationsApi.listNotifications().then(setItems).finally(() => setRefreshing(false));
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -104,7 +110,10 @@ export default function Notifications({ navigation }: Props) {
       ) : items.length === 0 ? (
         <Text style={[styles.line, { textAlign: 'center', marginTop: 40, color: colors.muted }]}>Nothing yet.</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.body}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           {today.length > 0 && <Text style={styles.sectionLabel}>Today</Text>}
           {today.map((n) => (
             <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />

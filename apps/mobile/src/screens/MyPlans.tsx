@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -25,25 +25,34 @@ export default function MyPlans({ navigation }: Props) {
   const [hosted, setHosted] = useState<ApiEvent[]>([]);
   const [joined, setJoined] = useState<MyPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  const fetchPlans = useCallback(() => {
+    setError('');
+    return Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine()])
+      .then(([hostedEvents, requests]) => {
+        setHosted(hostedEvents);
+        setJoined(
+          requests
+            .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING') && jr.event && jr.event.hostId !== state.userId)
+            .map((jr) => ({ event: jr.event!, role: jr.status === 'APPROVED' ? 'approved' as const : 'pending' as const })),
+        );
+      })
+      .catch((e) => { console.error('My plans load failed', e); setError("Couldn't load your plans. Pull down to try again."); });
+  }, [state.userId]);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      setError('');
-      Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine()])
-        .then(([hostedEvents, requests]) => {
-          setHosted(hostedEvents);
-          setJoined(
-            requests
-              .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING') && jr.event && jr.event.hostId !== state.userId)
-              .map((jr) => ({ event: jr.event!, role: jr.status === 'APPROVED' ? 'approved' as const : 'pending' as const })),
-          );
-        })
-        .catch((e) => { console.error('My plans load failed', e); setError("Couldn't load your plans. Pull down to try again."); })
-        .finally(() => setLoading(false));
-    }, [state.userId]),
+      fetchPlans().finally(() => setLoading(false));
+    }, [fetchPlans]),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPlans().finally(() => setRefreshing(false));
+  }, [fetchPlans]);
 
   const hostedItems: MyPlanItem[] = hosted.map((event) => ({ event, role: 'host' as const }));
   const archived = hostedItems.filter((i) => i.event.isArchived);
@@ -92,7 +101,10 @@ export default function MyPlans({ navigation }: Props) {
           />
         </View>
       ) : filter === 'Upcoming' ? (
-        <ScrollView contentContainerStyle={styles.cards}>
+        <ScrollView
+          contentContainerStyle={styles.cards}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           {items.map(({ event: e, role }) => {
             const isHost = role === 'host';
             const card = toEventCard(e);
@@ -139,7 +151,10 @@ export default function MyPlans({ navigation }: Props) {
           })}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           {items.map(({ event: e }) => {
             const when = `${formatEventDate(e.date)} · ${formatEventTime(e.time)}`;
             return (

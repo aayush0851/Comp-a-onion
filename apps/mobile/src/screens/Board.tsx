@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -20,23 +20,32 @@ export default function Board({ navigation }: Props) {
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [myRequests, setMyRequests] = useState<Map<string, ApiJoinRequest>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!state.onboarded) dispatch({ type: 'SET_ONBOARDED' });
   }, [state.onboarded]);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const fetchBoard = useCallback(() => {
     setError('');
-    Promise.all([eventsApi.listBoard(state.filter), joinRequestsApi.listMine()])
+    return Promise.all([eventsApi.listBoard(state.filter), joinRequestsApi.listMine()])
       .then(([board, mine]) => {
         setEvents(board);
         setMyRequests(new Map(mine.filter((jr) => jr.status !== 'DECLINED' && jr.status !== 'EXPIRED').map((jr) => [jr.eventId, jr])));
       })
-      .catch((e) => { console.error('Board load failed', e); setError("Couldn't load the board. Pull down to try again."); })
-      .finally(() => setLoading(false));
+      .catch((e) => { console.error('Board load failed', e); setError("Couldn't load the board. Pull down to try again."); });
   }, [state.filter]);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetchBoard().finally(() => setLoading(false));
+  }, [fetchBoard]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchBoard().finally(() => setRefreshing(false));
+  }, [fetchBoard]);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -75,7 +84,10 @@ export default function Board({ navigation }: Props) {
       {loading ? (
         <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={styles.cards}>
+        <ScrollView
+          contentContainerStyle={styles.cards}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           {!!error && <Text style={[scale.meta, { textAlign: 'center' }]}>{error}</Text>}
           {!error && cards.length === 0 && (
             <Text style={[scale.meta, { textAlign: 'center', paddingTop: 20 }]}>Nothing posted near you yet.</Text>

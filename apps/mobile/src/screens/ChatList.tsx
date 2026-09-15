@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -21,34 +21,46 @@ export default function ChatList({ navigation }: Props) {
   const [eventThreads, setEventThreads] = useState<EventThread[]>([]);
   const [dmThreads, setDmThreads] = useState<ApiDmThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchThreads = useCallback(async () => {
+    const [hosted, mine, dms] = await Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine(), chatApi.listDmThreads()]);
+    const approvedMineEvents = mine.filter((jr) => jr.status === 'APPROVED' && jr.event).map((jr) => jr.event!);
+    const eventsById = new Map([...hosted, ...approvedMineEvents].map((e) => [e.id, e]));
+
+    const threads = await Promise.all(
+      [...eventsById.values()].map(async (e) => {
+        const msgs = await chatApi.listEventMessages(e.id);
+        return { eventId: e.id, title: e.title, lastMessage: msgs[msgs.length - 1] ?? null };
+      }),
+    );
+
+    return { threads: threads.sort((a, b) => (b.lastMessage?.createdAt ?? '').localeCompare(a.lastMessage?.createdAt ?? '')), dms };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
 
-      Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine(), chatApi.listDmThreads()]).then(
-        async ([hosted, mine, dms]) => {
-          const approvedMineEvents = mine.filter((jr) => jr.status === 'APPROVED' && jr.event).map((jr) => jr.event!);
-          const eventsById = new Map([...hosted, ...approvedMineEvents].map((e) => [e.id, e]));
-
-          const threads = await Promise.all(
-            [...eventsById.values()].map(async (e) => {
-              const msgs = await chatApi.listEventMessages(e.id);
-              return { eventId: e.id, title: e.title, lastMessage: msgs[msgs.length - 1] ?? null };
-            }),
-          );
-
+      fetchThreads()
+        .then(({ threads, dms }) => {
           if (cancelled) return;
-          setEventThreads(threads.sort((a, b) => (b.lastMessage?.createdAt ?? '').localeCompare(a.lastMessage?.createdAt ?? '')));
+          setEventThreads(threads);
           setDmThreads(dms);
-          setLoading(false);
-        },
-      );
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
 
       return () => { cancelled = true; };
-    }, []),
+    }, [fetchThreads]),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchThreads()
+      .then(({ threads, dms }) => { setEventThreads(threads); setDmThreads(dms); })
+      .finally(() => setRefreshing(false));
+  }, [fetchThreads]);
 
   const eventThreadIds = eventThreads.map((t) => t.eventId).join(',');
   const dmPeerIds = dmThreads.map((t) => t.peer.id).join(',');
@@ -104,7 +116,10 @@ export default function ChatList({ navigation }: Props) {
             />
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.list}>
+          <ScrollView
+            contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+          >
             {visibleEventThreads.map((t) => (
               <ListRow
                 key={t.eventId}

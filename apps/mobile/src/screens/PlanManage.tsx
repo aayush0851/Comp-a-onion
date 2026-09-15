@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,23 +19,32 @@ export default function PlanManage({ navigation, route }: Props) {
   const [pending, setPending] = useState<ApiJoinRequest[]>([]);
   const [reviewed, setReviewed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [deciding, setDeciding] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const fetchPlan = useCallback(() => {
     setError(false);
-    Promise.all([
+    return Promise.all([
       eventsApi.getEvent(route.params.id),
       joinRequestsApi.listForHost(route.params.id),
       reviewsApi.hasReviewed(route.params.id),
     ])
       .then(([e, jrs, mine]) => { setEvent(e); setPending(jrs); setReviewed(!!mine); })
-      .catch((e) => { console.error('PlanManage load failed', e); setError(true); })
-      .finally(() => setLoading(false));
+      .catch((e) => { console.error('PlanManage load failed', e); setError(true); });
   }, [route.params.id]);
 
+  const load = useCallback(() => {
+    setLoading(true);
+    fetchPlan().finally(() => setLoading(false));
+  }, [fetchPlan]);
+
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPlan().finally(() => setRefreshing(false));
+  }, [fetchPlan]);
 
   if (error) {
     return (
@@ -89,7 +98,10 @@ export default function PlanManage({ navigation, route }: Props) {
         subtitle={[event.venue || 'Venue TBD', shapeLabel, genderRestrictionLabel(fromApiGenderRestriction(event.genderRestriction))].join(' · ')}
         onBack={() => navigation.navigate('MyPlans')}
       />
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+      >
         {event.isArchived && (
           <View style={styles.planCardWrap}>
             <View style={styles.archivedChip}><Text style={styles.archivedLabel}>Archived by you</Text></View>

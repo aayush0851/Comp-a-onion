@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -27,6 +27,7 @@ const STATUS_TONE: Record<ApiJoinRequest['status'], 'peach' | 'sage' | 'sand'> =
 export default function SentRequests({ navigation }: Props) {
   const [items, setItems] = useState<ApiJoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -34,6 +35,11 @@ export default function SentRequests({ navigation }: Props) {
       joinRequestsApi.listMine().then(setItems).finally(() => setLoading(false));
     }, []),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    joinRequestsApi.listMine().then(setItems).finally(() => setRefreshing(false));
+  }, []);
 
   useEffect(() => {
     const unread = items.filter((jr) => jr.status !== 'PENDING' && !jr.lastReadAt);
@@ -57,7 +63,10 @@ export default function SentRequests({ navigation }: Props) {
           />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           {items.map((jr) => (
             <ListRow
               key={jr.id}

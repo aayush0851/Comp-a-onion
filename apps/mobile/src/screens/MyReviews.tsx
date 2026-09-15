@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -21,15 +21,22 @@ export default function MyReviews({ navigation }: Props) {
   const [received, setReceived] = useState<ApiPersonReview[]>([]);
   const [rating, setRating] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchReviews = useCallback(() => Promise.all([reviewsApi.listReceived(), usersApi.getMe()])
+    .then(([reviews, me]) => { setReceived(reviews); setRating(me.aggregatedRating); }), []);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      Promise.all([reviewsApi.listReceived(), usersApi.getMe()])
-        .then(([reviews, me]) => { setReceived(reviews); setRating(me.aggregatedRating); })
-        .finally(() => setLoading(false));
-    }, []),
+      fetchReviews().finally(() => setLoading(false));
+    }, [fetchReviews]),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchReviews().finally(() => setRefreshing(false));
+  }, [fetchReviews]);
 
   const reviews = useMemo(() => received.filter((r) => {
     if (filter === 1) return r.rating === 5;
@@ -60,7 +67,10 @@ export default function MyReviews({ navigation }: Props) {
           />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.body}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
+        >
           <RatingSummary value={rating} count={received.length} dist={RATING_DIST} traits={RATING_TRAITS} />
           <FilterChips items={FILTERS} active={filter} onChange={setFilter} />
           {reviews.map((r) => (
