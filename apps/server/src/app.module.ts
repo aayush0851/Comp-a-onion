@@ -12,6 +12,7 @@ import { ReviewsModule } from './reviews/reviews.module.js';
 import { ReviewReportsModule } from './review-reports/review-reports.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { DeviceTokensModule } from './device-tokens/device-tokens.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { DeviceTokensModule } from './device-tokens/device-tokens.module.js';
     ReviewReportsModule,
     NotificationsModule,
     DeviceTokensModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

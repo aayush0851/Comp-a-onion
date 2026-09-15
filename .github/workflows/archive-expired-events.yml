@@ -1,0 +1,18 @@
+name: Archive expired plans
+
+on:
+  schedule:
+    # Once a day is enough for archiving — GitHub may delay a scheduled run
+    # on a quiet repo by a few minutes, which is fine for this.
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call archive-expired-events endpoint
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "${{ secrets.SERVER_BASE_URL }}/internal/jobs/archive-expired-events" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
