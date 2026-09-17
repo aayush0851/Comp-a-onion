@@ -8,6 +8,7 @@ export type PlansState = {
   // create-flow draft
   step: 0 | 1 | 2;
   planTitle: string;
+  planDescription: string;
   planTags: string[];
   planDate: string | null;
   planTime: string | null;
@@ -23,6 +24,7 @@ export type PlansAction =
   | { type: 'SET_FILTER'; filter: 0 | 1 | 2 }
   | { type: 'SET_STEP'; step: 0 | 1 | 2 }
   | { type: 'SET_TITLE'; title: string }
+  | { type: 'SET_DESCRIPTION'; description: string }
   | { type: 'TOGGLE_TAG'; tag: string }
   | { type: 'SET_DATE'; date: string }
   | { type: 'SET_TIME'; time: string }

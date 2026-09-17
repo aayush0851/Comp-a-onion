@@ -45,6 +45,7 @@ export type EventCard = {
   id: string;
   hostId: string;
   title: string;
+  description: string | null;
   slot: string;
   time: string;
   dateLabel: string;
@@ -84,6 +85,7 @@ export function toEventCard(event: ApiEvent): EventCard {
     id: event.id,
     hostId: event.hostId,
     title: event.title,
+    description: event.description,
     slot: `${(event.venue ?? event.title).toUpperCase()}`,
     time,
     dateLabel,

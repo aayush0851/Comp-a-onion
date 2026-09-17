@@ -95,6 +95,7 @@ export default function PlanManage({ navigation, route }: Props) {
             onBack={back}
           />
           <View style={styles.body}>
+            {!!event.description && <Text style={[styles.eventDescription, { marginTop: -8 }]}>{event.description}</Text>}
             {came > 0 && !reviewed && (
               <View style={styles.rateCard}>
                 <Text style={styles.rateTitle}>Rate the {came === 1 ? 'one' : came} who came</Text>
@@ -161,6 +162,7 @@ export default function PlanManage({ navigation, route }: Props) {
         </View>
         <View style={{ paddingTop: 14, paddingHorizontal: 20 }}>
           <Text style={styles.eventLine} numberOfLines={2}>{event.title} · {details}</Text>
+          {!!event.description && <Text style={styles.eventDescription} numberOfLines={3}>{event.description}</Text>}
           <Text style={styles.bigTitle}>{approvalRequired ? "Who's asking to join" : "Who's in"}</Text>
           <Text style={styles.subtitle}>
             {approvalRequired
@@ -260,6 +262,7 @@ const styles = StyleSheet.create({
   queuePillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.ink },
   filled: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc500 },
   eventLine: { fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400, marginBottom: 9 },
+  eventDescription: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.zinc500, marginBottom: 9, marginTop: -3 },
   bigTitle: { fontFamily: font.extrabold, fontSize: 27, lineHeight: 32, letterSpacing: -1, color: colors.ink },
   subtitle: { fontFamily: font.regular, fontSize: 14, lineHeight: 21, color: colors.zinc500, marginTop: 8 },
   cards: { paddingTop: 18, paddingHorizontal: 16, gap: 11 },

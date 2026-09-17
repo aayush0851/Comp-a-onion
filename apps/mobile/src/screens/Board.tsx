@@ -141,7 +141,6 @@ export default function Board({ navigation }: Props) {
             {cards.map((c) => {
               const request = myRequests.get(c.id);
               const s = cardState(c, state.userId, request);
-              const tags = [c.shapeLabel, ...(c.genderRestriction !== 'anyone' ? [c.genderRestriction === 'women' ? 'Women only' : 'Men only'] : []), ...c.tags].slice(0, 3);
               return (
                 <HangoutCard
                   key={c.id}
@@ -153,7 +152,7 @@ export default function Board({ navigation }: Props) {
                   flag={error ? 'Cached' : s.flag}
                   flagTone={error ? 'zinc' : s.flagTone}
                   title={c.title}
-                  tags={tags}
+                  blurb={c.description}
                   going={c.going.map((g) => ({ label: g.label, photo: g.photo }))}
                   seatText={c.goingLine}
                   cta={error ? 'Reconnect to join' : s.cta}

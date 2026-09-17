@@ -4,6 +4,7 @@ import type { CostMode, GenderRestriction } from '../data/gender';
 
 export type CreateEventInput = {
   title: string;
+  description?: string;
   date: string;
   time?: string;
   venue?: string;

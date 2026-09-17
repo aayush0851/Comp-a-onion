@@ -75,6 +75,7 @@ export class EventsService {
       data: {
         hostId,
         title: dto.title,
+        description: dto.description,
         date: new Date(dto.date),
         time: dto.time ? timeStringToDate(dto.time) : undefined,
         venue: dto.venue,

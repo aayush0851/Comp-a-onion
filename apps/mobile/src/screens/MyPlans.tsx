@@ -138,7 +138,7 @@ export default function MyPlans({ navigation }: Props) {
                   flag={ui.flag(e)}
                   flagTone={ui.flagTone(e)}
                   title={e.title}
-                  tags={[card.shapeLabel, ...(e.entryMode === 'APPROVE' ? ['Curated approval'] : []), ...e.tags].slice(0, 3)}
+                  blurb={e.description}
                   going={card.going.map((g) => ({ label: g.label, photo: g.photo }))}
                   seatText={`${e.seatsFilled} in · ${e.seatsTotal} seats`}
                   cta={ui.cta}

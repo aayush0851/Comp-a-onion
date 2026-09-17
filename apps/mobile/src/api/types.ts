@@ -38,6 +38,7 @@ export type ApiEvent = {
   hostId: string;
   host: ApiUser;
   title: string;
+  description: string | null;
   date: string;
   time: string | null;
   venue: string | null;

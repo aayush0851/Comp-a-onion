@@ -93,6 +93,7 @@ export default function Detail({ navigation, route }: Props) {
           <View style={{ paddingTop: 16, paddingHorizontal: 20 }}>
             <Text style={styles.heroEyebrow} numberOfLines={1}>{activity.venue ?? 'Anywhere nearby'}</Text>
             <Text style={styles.heroTitle}>{activity.title}</Text>
+            {!!activity.description && <Text style={styles.heroDescription}>{activity.description}</Text>}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 13, flexWrap: 'wrap' }}>
               <View style={styles.timePill}><Text style={styles.timePillLabel}>{whenLabel}</Text></View>
               {activity.costMode && (
@@ -236,6 +237,7 @@ const styles = StyleSheet.create({
   seatsPillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.amber },
   heroEyebrow: { fontFamily: font.extrabold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.amberInk },
   heroTitle: { fontFamily: font.extrabold, fontSize: 26, lineHeight: 31, letterSpacing: -1, color: colors.ink, marginTop: 9 },
+  heroDescription: { fontFamily: font.regular, fontSize: 13.5, lineHeight: 20, color: colors.amberInk, marginTop: 8 },
   timePill: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   timePillLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.white },
   softPill: { backgroundColor: 'rgba(255,255,255,.6)', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },

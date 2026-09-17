@@ -9,6 +9,12 @@ import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Birthday'>;
 
+function isValidDate(day: number, month: number, year: number): boolean {
+  if (year < 1900 || year > new Date().getFullYear()) return false;
+  const d = new Date(year, month - 1, day);
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day && d.getTime() <= Date.now();
+}
+
 function calcAge(day: number, month: number, year: number): number {
   const today = new Date();
   let age = today.getFullYear() - year;
@@ -25,8 +31,9 @@ export default function Birthday({ navigation }: Props) {
 
   const { day, month, year } = state.dob;
   const complete = day.length === 2 && month.length === 2 && year.length === 4;
-  const age = complete ? calcAge(Number(day), Number(month), Number(year)) : null;
-  const canContinue = complete && age !== null && age >= 18;
+  const validFormat = complete && isValidDate(Number(day), Number(month), Number(year));
+  const age = validFormat ? calcAge(Number(day), Number(month), Number(year)) : null;
+  const canContinue = validFormat && age !== null && age >= 18;
 
   const setField = (field: 'day' | 'month' | 'year', value: string) => dispatch({ type: 'SET_DOB', field, value });
 
@@ -76,7 +83,10 @@ export default function Birthday({ navigation }: Props) {
             style={[styles.input, { flex: 1.4 }]}
           />
         </View>
-        {complete && age !== null && age < 18 && (
+        {complete && !validFormat && (
+          <Notice tone="rose" style={{ marginTop: 12 }}>That's not a real date. Double-check it.</Notice>
+        )}
+        {validFormat && age !== null && age < 18 && (
           <Notice tone="rose" style={{ marginTop: 12 }}>You need to be 18 or older to use Companion.</Notice>
         )}
       </View>

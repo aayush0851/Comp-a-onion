@@ -1,6 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
+
+const MIN_AGE_YEARS = 18;
+
+function isAtLeastMinAge(dob: Date): boolean {
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - MIN_AGE_YEARS);
+  return dob.getTime() <= cutoff.getTime();
+}
 
 export const PUBLIC_USER_SELECT = {
   id: true,
@@ -23,9 +31,11 @@ export class UsersService {
   }
 
   updateMe(userId: string, dto: UpdateUserDto) {
+    const dob = dto.dob ? new Date(dto.dob) : undefined;
+    if (dob && !isAtLeastMinAge(dob)) throw new BadRequestException(`You must be at least ${MIN_AGE_YEARS} years old`);
     return this.prisma.user.update({
       where: { id: userId },
-      data: { ...dto, dob: dto.dob ? new Date(dto.dob) : undefined },
+      data: { ...dto, dob },
     });
   }
 

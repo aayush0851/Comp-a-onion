@@ -6,6 +6,7 @@ import type { PlansState, Shape } from './schema';
 const emptyDraft = {
   step: 0 as const,
   planTitle: '',
+  planDescription: '',
   planTags: [] as string[],
   planDate: null as string | null,
   planTime: null as string | null,
@@ -30,6 +31,8 @@ export function plansReducer(state: AppState, action: Action): AppState {
       return { ...state, step: action.step };
     case 'SET_TITLE':
       return { ...state, planTitle: action.title };
+    case 'SET_DESCRIPTION':
+      return { ...state, planDescription: action.description };
     case 'TOGGLE_TAG': {
       const has = state.planTags.includes(action.tag);
       let tags = has ? state.planTags.filter((t) => t !== action.tag) : [...state.planTags, action.tag];

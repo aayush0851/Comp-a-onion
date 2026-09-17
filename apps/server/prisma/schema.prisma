@@ -69,6 +69,7 @@ model User {
   vibeTags         String[]     @default([])
   aggregatedRating Float        @default(0)
   isMalice         Boolean      @default(false)
+  isVerified       Boolean      @default(false)
   isArchived       Boolean      @default(false)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -90,6 +91,7 @@ model Event {
   hostId            String
   host              User              @relation("EventHost", fields: [hostId], references: [id])
   title             String
+  description       String?
   date              DateTime          @db.Date
   time              DateTime?         @db.Time
   venue             String?

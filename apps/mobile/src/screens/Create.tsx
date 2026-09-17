@@ -16,7 +16,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
 const STEP_TITLES = ['What are you doing tonight?', 'When, and where-ish?', 'Who comes, and how they get in'];
 const STEP_CTAS = ['Continue to Time & Spot', "Continue to Who's Coming", 'Post the hangout'];
 const MAX_TITLE = 120;
+const MAX_DESCRIPTION = 280;
 const DATE_CELL = (Dimensions.get('window').width - 40 - 20) / 3;
+
+function to24Hour(time: string): string {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+  if (!match) return time;
+  let hour = Number(match[1]) % 12;
+  if (match[3].toUpperCase() === 'PM') hour += 12;
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
 
 function ApprovalBox({ value, onChange, sub }: { value: boolean; onChange: (v: boolean) => void; sub: string }) {
   return (
@@ -40,7 +49,7 @@ export default function Create({ navigation }: Props) {
   const [error, setError] = useState('');
   const [posted, setPosted] = useState<ApiEvent | null>(null);
 
-  const canContinue = state.step !== 1 || !!state.planDate;
+  const canContinue = (state.step !== 0 || state.planTitle.trim().length > 0) && (state.step !== 1 || !!state.planDate);
   const setApproval = (value: boolean) => dispatch({ type: 'SET_APPROVAL_REQUIRED', value });
 
   const next = async () => {
@@ -53,9 +62,10 @@ export default function Create({ navigation }: Props) {
     setError('');
     try {
       const event = await eventsApi.createEvent({
-        title: state.planTitle.trim() || 'Untitled hangout',
+        title: state.planTitle.trim(),
+        description: state.planDescription.trim() || undefined,
         date: state.planDate!,
-        time: state.planTime ?? undefined,
+        time: state.planTime ? to24Hour(state.planTime) : undefined,
         venue: state.planVenue ?? undefined,
         entryMode: state.approvalRequired ? 'APPROVE' : 'OPEN',
         seatsTotal: state.shape === 'duo' ? 2 : state.size,
@@ -133,6 +143,15 @@ export default function Create({ navigation }: Props) {
                 />
                 <Text style={styles.ideaCount}>{state.planTitle.length > 0 ? `${state.planTitle.length} / ${MAX_TITLE}` : `MAX ${MAX_TITLE} CHARS`}</Text>
               </View>
+              <FieldLabel style={{ marginTop: 20 }}>Description — optional</FieldLabel>
+              <TextField
+                value={state.planDescription}
+                onChangeText={(t) => dispatch({ type: 'SET_DESCRIPTION', description: t })}
+                placeholder="A few more details worth knowing before they join."
+                multiline
+                maxLength={MAX_DESCRIPTION}
+                style={{ minHeight: 72, textAlignVertical: 'top' }}
+              />
               <Text style={styles.toneTitle}>Set the tone</Text>
               <View style={{ marginTop: 12 }}>
                 <FilterChips
@@ -167,8 +186,12 @@ export default function Create({ navigation }: Props) {
               </ScrollView>
 
               <FieldLabel style={{ marginTop: 22 }}>Time</FieldLabel>
-              <Pressable onPress={() => setShowTimeSheet(true)} style={styles.timeRow}>
-                <Text style={styles.timeLabel}>Kick off</Text>
+              <Pressable
+                onPress={() => state.planDate && setShowTimeSheet(true)}
+                disabled={!state.planDate}
+                style={[styles.timeRow, !state.planDate && { opacity: 0.5 }]}
+              >
+                <Text style={styles.timeLabel}>{state.planDate ? 'Kick off' : 'Pick a date first'}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Text style={[styles.timeValue, !state.planTime && { color: colors.zinc400 }]}>{state.planTime ?? 'Any time'}</Text>
                   {!!state.planTime && (
