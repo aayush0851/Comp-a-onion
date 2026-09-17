@@ -37,6 +37,11 @@ export class ChatController {
     );
   }
 
+  @Get('chat/event-threads')
+  listEventThreads(@CurrentUser() user: RequestUser) {
+    return this.chatService.listEventThreads(user.userId);
+  }
+
   @Post('users/:id/dm')
   sendDm(@CurrentUser() user: RequestUser, @Param('id') peerId: string, @Body() dto: SendMessageDto) {
     return this.chatService.sendDm(user.userId, peerId, dto.text);

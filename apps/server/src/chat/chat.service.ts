@@ -39,6 +39,32 @@ export class ChatService {
     });
   }
 
+  // "My" event chat threads: events I host or was approved into, minus
+  // archived ones — a chat has no reason to still show once its plan is over.
+  async listEventThreads(userId: string) {
+    const [hostedEvents, joinedEvents] = await Promise.all([
+      this.prisma.event.findMany({ where: { hostId: userId, isArchived: false }, select: { id: true, title: true } }),
+      this.prisma.event.findMany({
+        where: { isArchived: false, joinRequests: { some: { userId, status: 'APPROVED' } } },
+        select: { id: true, title: true },
+      }),
+    ]);
+    const eventsById = new Map([...hostedEvents, ...joinedEvents].map((e) => [e.id, e]));
+
+    const threads = await Promise.all(
+      [...eventsById.values()].map(async (e) => {
+        const lastMessage = await this.prisma.chatMessage.findFirst({
+          where: { eventId: e.id },
+          orderBy: { createdAt: 'desc' },
+          ...WITH_AUTHOR,
+        });
+        return { eventId: e.id, title: e.title, lastMessage };
+      }),
+    );
+
+    return threads.sort((a, b) => (b.lastMessage?.createdAt.getTime() ?? 0) - (a.lastMessage?.createdAt.getTime() ?? 0));
+  }
+
   async sendDm(fromUserId: string, toUserId: string, text: string) {
     const message = await this.prisma.chatMessage.create({
       data: { authorId: fromUserId, dmWithUserId: toUserId, text },

@@ -12,11 +12,13 @@ export type ApiChatMessage = {
 };
 
 export type ApiDmThread = { peer: ApiUser; lastMessage: ApiChatMessage };
+export type ApiEventThread = { eventId: string; title: string; lastMessage: ApiChatMessage | null };
 
 export const listEventMessages = (eventId: string, after?: string) =>
   get<ApiChatMessage[]>(`/events/${eventId}/messages${after ? `?after=${encodeURIComponent(after)}` : ''}`);
 export const sendEventMessage = (eventId: string, text: string) =>
   post<ApiChatMessage>(`/events/${eventId}/messages`, { text });
+export const listEventThreads = () => get<ApiEventThread[]>('/chat/event-threads');
 export const listDmThread = (peerId: string) => get<ApiChatMessage[]>(`/users/${peerId}/dm`);
 export const sendDm = (peerId: string, text: string) => post<ApiChatMessage>(`/users/${peerId}/dm`, { text });
 export const listDmThreads = () => get<ApiDmThread[]>('/users/me/dm-threads');
