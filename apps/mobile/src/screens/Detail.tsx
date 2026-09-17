@@ -1,13 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow, stripe } from '../theme';
-import { BackButton, Btn, UserChip } from '../components/widgets';
-import { costModeLabel, GENDER_COLORS, genderIconSymbol, genderRestrictionLabel, HOUSE_RULES } from '../data';
+import { colors, font, seatTones } from '../theme';
+import { Avatar, Btn, CheckDot, Footer, ListRow, Notice, Sheet, TextField, UserChip, StatusScrim } from '../components/widgets';
+import { costModeLabel, genderIconSymbol, genderRestrictionLabel } from '../data';
 import { toEventCard, type EventCard } from '../data/eventDisplay';
 import { eventsApi, joinRequestsApi, ApiError } from '../api';
 import type { ApiJoinRequest } from '../api/types';
@@ -36,26 +35,28 @@ export default function Detail({ navigation, route }: Props) {
           setActivity(toEventCard(event));
           setMyRequest(mine.find((jr) => jr.eventId === route.params.id) ?? null);
         })
-        .catch(() => setError("Couldn't load this plan."))
+        .catch(() => setError("Couldn't load this hangout."))
         .finally(() => setLoading(false));
     }, [route.params.id]),
   );
 
   if (loading || !activity) {
     return (
-      <View style={[styles.screen, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={colors.clay} />
+      <View style={[styles.screen, { alignItems: 'center', justifyContent: 'center', padding: 20 }]}>
+        {loading ? <ActivityIndicator color={colors.ink} /> : <Notice tone="rose">{error}</Notice>}
       </View>
     );
   }
 
   const isHost = activity.hostId === state.userId;
   const activeRequest = myRequest && myRequest.status !== 'DECLINED' && myRequest.status !== 'EXPIRED' ? myRequest : null;
-
   const cta = activity.entry === 'open' ? 'Take a seat' : 'Ask to join';
   const ctaNote = activity.entry === 'open'
     ? 'No approval on this one. The chat opens straight away.'
     : `${activity.hostFirst} reads one line and decides. No chat until then.`;
+  const seatsBadge = activity.isFull ? 'FULL' : `${activity.seatsLeft} SEAT${activity.seatsLeft === 1 ? '' : 'S'} LEFT`;
+  const tags = [...activity.tags, activity.shapeLabel];
+  const whenLabel = activity.time === 'Flexible' ? `${activity.dateLabel} · any time` : `${activity.time} · ${activity.dateLabel}`;
 
   const submitRequest = async () => {
     setSending(true);
@@ -71,244 +72,192 @@ export default function Detail({ navigation, route }: Props) {
     }
   };
 
+  const specs: [string, string][] = [
+    ['When', whenLabel],
+    ['Where', activity.venue ?? 'Group picks in chat'],
+    ['Getting in', activity.entry === 'open' ? 'Open seats' : 'Curated approval'],
+    ['Who can join', genderRestrictionLabel(activity.genderRestriction)],
+    ...(activity.costMode ? [['Cost', costModeLabel(activity.costMode) as string] as [string, string]] : []),
+  ];
+
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={[stripe(212), styles.hero]}>
-          <View style={{ position: 'absolute', top: insets.top + 2, left: 18 }}>
-            <BackButton onPress={() => navigation.navigate('Board')} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
+        <View style={[styles.hero, { paddingTop: insets.top + 2 }]}>
+          <View style={styles.heroTop}>
+            <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.heroBack}>
+              <Text style={styles.heroBackGlyph}>←</Text>
+            </Pressable>
+            <View style={styles.seatsPill}><Text style={styles.seatsPillLabel}>{seatsBadge}</Text></View>
           </View>
-          <View style={styles.slotChip}><Text style={styles.slotLabel}>{activity.slot}</Text></View>
-          <View style={styles.timeChip}>
-            <Feather name="clock" size={13} color={colors.ground} />
-            <Text style={styles.timeLabel}>{activity.time}</Text>
+          <View style={{ paddingTop: 16, paddingHorizontal: 20 }}>
+            <Text style={styles.heroEyebrow} numberOfLines={1}>{activity.venue ?? 'Anywhere nearby'}</Text>
+            <Text style={styles.heroTitle}>{activity.title}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 13, flexWrap: 'wrap' }}>
+              <View style={styles.timePill}><Text style={styles.timePillLabel}>{whenLabel}</Text></View>
+              {activity.costMode && (
+                <View style={styles.softPill}><Text style={styles.softPillLabel}>{costModeLabel(activity.costMode)}</Text></View>
+              )}
+            </View>
           </View>
         </View>
 
-        <View style={{ padding: 20 }}>
-          <Text style={styles.title}>{activity.title}</Text>
-          <View style={styles.tagRow}>
-            {activity.tags.map((tg) => (
-              <View key={tg} style={styles.tag}><Text style={styles.tagLabel}>{tg}</Text></View>
-            ))}
-            <View style={styles.shapeTag}><Text style={styles.shapeTagLabel}>{activity.shapeLabel}</Text></View>
-          </View>
-
-          <View style={styles.hostCard}>
-            <View style={{ flex: 1 }}>
-              <UserChip name={activity.host} initials={activity.hostInitials} photo={activity.hostPhoto} size="m" meta="Hosting" />
+        <View style={{ paddingTop: 16, paddingHorizontal: 20 }}>
+          {tags.length > 0 && (
+            <View style={styles.tags}>
+              {tags.map((t) => (
+                <View key={t} style={styles.tag}><Text style={styles.tagLabel}>{t}</Text></View>
+              ))}
             </View>
+          )}
+
+          <View style={[styles.box, { marginTop: 14 }]}>
+            <UserChip
+              name={activity.host}
+              initials={activity.hostInitials}
+              photo={activity.hostPhoto}
+              meta="Hosting"
+              chevron
+              onPress={() => navigation.navigate('RequesterProfile', { userId: activity.hostId })}
+            />
           </View>
 
-          <View style={{ marginTop: 18 }}>
-            <Text style={styles.sectionLabel}>Who's going</Text>
-            <Pressable onPress={() => setShowGoing(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+          <Pressable onPress={() => setShowGoing(true)} style={[styles.box, styles.goingRow]}>
+            {activity.going.length > 0 && (
               <View style={{ flexDirection: 'row' }}>
-                {activity.going.map((g, i) => (
-                  <View key={i} style={[styles.goingAvatar, { backgroundColor: g.bg, marginLeft: i === 0 ? 0 : -8 }]}>
-                    <Text style={[styles.goingLabel, { color: g.fg }]}>{g.label}</Text>
+                {activity.going.slice(0, 4).map((g, i) => (
+                  <View key={i} style={[styles.goingAvatar, { marginLeft: i === 0 ? 0 : -10 }]}>
+                    <Avatar initials={g.label} photo={g.photo} size={30} colorsOverride={seatTones[i % seatTones.length]} />
                   </View>
                 ))}
               </View>
-              <Text style={styles.goingLine}>{activity.goingLine}</Text>
-              <Text style={styles.goingArrow}>›</Text>
-            </Pressable>
-          </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.goingTitle}>Who's going</Text>
+              <Text style={styles.goingSub}>{activity.goingLine}</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
 
-          <View style={styles.specCard}>
-            {[
-              ['When', activity.when],
-              ['Where', activity.where],
-              ['Getting in', activity.gettingIn],
-              ['Who can join', genderRestrictionLabel(activity.genderRestriction)],
-              ...(activity.costMode ? [['Cost', costModeLabel(activity.costMode) as string]] : []),
-            ].map(([k, v], i, arr) => (
-              <View key={k} style={[styles.specRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+          <View style={[styles.box, styles.specs]}>
+            {specs.map(([k, v], i) => (
+              <View key={k} style={[styles.specRow, i < specs.length - 1 && styles.specRule]}>
                 <Text style={styles.specKey}>{k}</Text>
                 <Text style={styles.specVal}>{v}</Text>
               </View>
             ))}
           </View>
-
-          <View style={styles.rulesCard}>
-            <Text style={styles.rulesTitle}>Same three rules on every plan</Text>
-            {HOUSE_RULES.map((r) => (
-              <View key={r} style={styles.ruleRow}>
-                <View style={styles.ruleDot} />
-                <Text style={styles.ruleText}>{r}</Text>
-              </View>
-            ))}
-          </View>
         </View>
       </ScrollView>
+      <StatusScrim color={colors.amber} />
 
-      {isHost && (
-        <View style={styles.bottomIdle}>
-          <Btn label="Manage plan" onPress={() => navigation.navigate('PlanManage', { id: activity.id })} />
-        </View>
-      )}
-      {!isHost && activeRequest?.status === 'APPROVED' && (
-        <View style={styles.bottomIdle}>
-          <Btn label="Open chat" onPress={() => navigation.navigate('Chat', { id: activity.id })} />
-        </View>
-      )}
-      {!isHost && activeRequest?.status === 'PENDING' && (
-        <View style={styles.bottomIdle}>
-          <Btn
-            label={`Message ${activity.hostFirst}`}
-            onPress={() => navigation.navigate('RequesterChat', { planId: activity.id, requesterId: activity.hostId, name: activity.host })}
-          />
-          <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
-        </View>
-      )}
-      {!isHost && !activeRequest && !asking && !sent && (
-        <View style={styles.bottomIdle}>
-          {!!error && <Text style={styles.errorNote}>{error}</Text>}
-          {activity.isFull ? (
-            <>
-              <Btn label="Full" variant="disabled" />
-              <Text style={styles.ctaNote}>This plan filled up — no seats left.</Text>
-            </>
-          ) : (
-            <>
-              <Btn label={cta} onPress={() => setAsking(true)} />
-              <Text style={styles.ctaNote}>{ctaNote}</Text>
-            </>
-          )}
-        </View>
-      )}
-      {asking && !sent && (
-        <View style={styles.bottomAsk}>
-          <Text style={styles.askTitle}>One line for {activity.hostFirst}</Text>
-          <Text style={styles.askSub}>Not a bio. Just why tonight.</Text>
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            placeholder="Three weeks in this city and I can eat an unreasonable amount of ramen."
-            placeholderTextColor={colors.faint}
-            style={styles.textarea}
-          />
-          {!!error && <Text style={styles.errorNote}>{error}</Text>}
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Btn label={sending ? 'Sending…' : 'Send request'} onPress={submitRequest} />
+      <Footer>
+        {isHost && <Btn label="Manage hangout" onPress={() => navigation.navigate('PlanManage', { id: activity.id })} />}
+        {!isHost && activeRequest?.status === 'APPROVED' && (
+          <Btn label="Open chat" variant="amber" onPress={() => navigation.navigate('Chat', { id: activity.id })} />
+        )}
+        {!isHost && activeRequest?.status === 'PENDING' && (
+          <>
+            <Btn
+              label={`Message ${activity.hostFirst}`}
+              onPress={() => navigation.navigate('RequesterChat', { planId: activity.id, requesterId: activity.hostId, name: activity.host })}
+            />
+            <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
+          </>
+        )}
+        {!isHost && !activeRequest && !sent && (activity.isFull ? (
+          <>
+            <Btn label="Full" variant="disabled" />
+            <Text style={styles.ctaNote}>This hangout filled up — no seats left.</Text>
+          </>
+        ) : (
+          <>
+            {!!error && <Text style={[styles.ctaNote, { color: colors.roseInk, marginTop: 0, marginBottom: 8 }]}>{error}</Text>}
+            <Btn label={cta} onPress={() => setAsking(true)} />
+            <Text style={styles.ctaNote}>{ctaNote}</Text>
+          </>
+        ))}
+        {sent && (
+          <View style={styles.sent}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <CheckDot size={26} />
+              <Text style={styles.sentTitle}>Sent. Sit tight.</Text>
             </View>
-            <Btn label="Cancel" variant="secondary" full={false} onPress={() => setAsking(false)} />
+            <Text style={styles.sentBody}>{activity.hostFirst} has people to look at. You'll get a push either way — including if it's a no.</Text>
+            <View style={{ marginTop: 13 }}>
+              <Btn label="Back to the board" variant="outlined" onPress={() => navigation.navigate('Board')} />
+            </View>
           </View>
-        </View>
-      )}
-      {sent && (
-        <View style={styles.bottomSent}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-            <View style={styles.sentCheck}><Text style={styles.sentCheckLabel}>✓</Text></View>
-            <Text style={styles.sentTitle}>Sent. Sit tight.</Text>
-          </View>
-          <Text style={styles.sentBody}>
-            {activity.hostFirst} has people to look at. You'll get a push either way — including if it's a no.
-          </Text>
-          <View style={{ marginTop: 13 }}>
-            <Btn label="Back to the board" variant="secondary" onPress={() => navigation.navigate('Board')} />
-          </View>
-        </View>
-      )}
+        )}
+      </Footer>
 
-      <Modal visible={showGoing} transparent animationType="fade" onRequestClose={() => setShowGoing(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setShowGoing(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <Text style={styles.sheetTitle}>Who's going</Text>
-            {activity.going.map((g, i) => (
-              <View key={i} style={[styles.goingRow, i === activity.going.length - 1 && { borderBottomWidth: 0 }]}>
-                {g.photo ? (
-                  <Image source={{ uri: g.photo }} style={styles.goingRowAvatar} />
-                ) : (
-                  <View style={[styles.goingRowAvatar, { backgroundColor: g.bg, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={[styles.goingLabel, { color: g.fg }]}>{g.label}</Text>
-                  </View>
-                )}
-                <Text style={styles.goingRowName}>{g.name}</Text>
-                <View style={[styles.genderBadge, { backgroundColor: GENDER_COLORS[g.gender].bg }]}>
-                  <Text style={[styles.genderBadgeIcon, { color: GENDER_COLORS[g.gender].fg }]}>{genderIconSymbol(g.gender)}</Text>
-                </View>
-              </View>
-            ))}
-            {activity.going.length === 0 && <Text style={styles.emptyGoing}>Nobody yet — be the first.</Text>}
-            <View style={{ marginTop: 8 }}><Btn label="Close" variant="secondary" onPress={() => setShowGoing(false)} /></View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <Sheet visible={asking && !sent} onClose={() => setAsking(false)} title={`One line for ${activity.hostFirst}`} sub="Not a bio. Just why tonight.">
+        <TextField
+          value={message}
+          onChangeText={setMessage}
+          multiline
+          maxLength={120}
+          placeholder="Three weeks in this city and I can eat an unreasonable amount of ramen."
+          style={styles.askInput}
+        />
+        <Text style={styles.counter}>{message.length}/120</Text>
+        {!!error && <Text style={[styles.ctaNote, { color: colors.roseInk }]}>{error}</Text>}
+        <View style={{ gap: 5, marginTop: 14 }}>
+          <Btn label="Send request" loading={sending} onPress={submitRequest} />
+          <Btn label="Cancel" variant="ghost" onPress={() => setAsking(false)} />
+        </View>
+      </Sheet>
+
+      <Sheet visible={showGoing} onClose={() => setShowGoing(false)} title="Who's going" sub={activity.goingLine}>
+        <View style={{ gap: 8, marginTop: 16 }}>
+          {activity.going.map((g, i) => (
+            <ListRow
+              key={i}
+              title={g.name}
+              leading={<Avatar initials={g.label} photo={g.photo} size={44} colorsOverride={seatTones[i % seatTones.length]} />}
+              right={genderIconSymbol(g.gender)}
+            />
+          ))}
+          {activity.going.length === 0 && <Notice tone="zinc">Nobody yet — be the first.</Notice>}
+        </View>
+        <View style={{ marginTop: 14 }}><Btn label="Close" variant="secondary" onPress={() => setShowGoing(false)} /></View>
+      </Sheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  hero: { borderRadius: 0, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
-  slotChip: {
-    position: 'absolute', left: 18, bottom: 52, backgroundColor: 'rgba(255,255,255,.86)',
-    borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10,
-  },
-  slotLabel: { color: colors.muted, fontFamily: 'Figtree_600SemiBold', fontSize: 8.5, letterSpacing: 0.6 },
-  timeChip: {
-    position: 'absolute', left: 18, bottom: 18, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: colors.ink, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14,
-  },
-  timeLabel: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 13.5 },
-  title: { fontFamily: 'Figtree_700Bold', fontSize: 28, letterSpacing: -0.6, color: colors.ink },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 13 },
-  tag: { backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
-  tagLabel: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 11.5 },
-  shapeTag: { backgroundColor: colors.sageBg, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
-  shapeTagLabel: { color: colors.sageInk, fontFamily: 'Figtree_600SemiBold', fontSize: 11.5 },
-  hostCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface,
-    borderRadius: radius.inner, padding: 15, marginTop: 16, ...shadow.inner,
-  },
-  sectionLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.faint, marginBottom: 11 },
-  goingAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
-  goingLabel: { fontFamily: 'Figtree_700Bold', fontSize: 11 },
-  goingLine: { color: colors.muted, fontFamily: 'Figtree_500Medium', fontSize: 13, marginLeft: 4 },
-  goingArrow: { color: colors.faint, fontFamily: 'Figtree_700Bold', fontSize: 16, marginLeft: 2 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(46,42,38,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,
-    padding: 22, paddingBottom: 34,
-  },
-  sheetTitle: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 17, marginBottom: 8 },
-  goingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.lineCard,
-  },
-  goingRowAvatar: { width: 42, height: 42, borderRadius: 21 },
-  goingRowName: { flex: 1, color: colors.ink, fontFamily: 'Figtree_600SemiBold', fontSize: 14 },
-  genderBadge: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: colors.blush,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  genderBadgeIcon: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 14 },
-  emptyGoing: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13, paddingVertical: 12 },
-  specCard: { marginTop: 18, backgroundColor: colors.surface, borderRadius: radius.inner, paddingHorizontal: 16, ...shadow.inner },
-  specRow: { flexDirection: 'row', gap: 14, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.lineCard },
-  specKey: { width: 64, color: colors.faint, fontFamily: 'Figtree_600SemiBold', fontSize: 12 },
-  specVal: { flex: 1, color: colors.ink, fontFamily: 'Figtree_500Medium', fontSize: 13.5, lineHeight: 18 },
-  rulesCard: { marginTop: 16, backgroundColor: colors.blush, borderRadius: radius.inner, padding: 17 },
-  rulesTitle: { color: colors.blushInk, fontFamily: 'Figtree_700Bold', fontSize: 13.5, marginBottom: 10 },
-  ruleRow: { flexDirection: 'row', gap: 9, paddingVertical: 4, alignItems: 'flex-start' },
-  ruleDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.clay, marginTop: 7 },
-  ruleText: { flex: 1, color: colors.blushInk, fontFamily: 'Figtree_400Regular', fontSize: 13, lineHeight: 19 },
-  bottomIdle: { backgroundColor: 'rgba(251,246,240,.95)', padding: 20, paddingBottom: 32, borderTopWidth: 1, borderTopColor: colors.line },
-  ctaNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 11.5, textAlign: 'center', marginTop: 9 },
-  errorNote: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 12, textAlign: 'center', marginBottom: 8 },
-  bottomAsk: { backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 32, ...shadow.sheet },
-  askTitle: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 16 },
-  askSub: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 12.5, marginTop: 5 },
-  textarea: {
-    marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.inner, backgroundColor: colors.ground,
-    padding: 14, fontFamily: 'Figtree_400Regular', fontSize: 13.5, color: colors.ink, height: 78, textAlignVertical: 'top',
-  },
-  bottomSent: { backgroundColor: colors.sageBg, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 32 },
-  sentCheck: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' },
-  sentCheckLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 13 },
-  sentTitle: { color: colors.sageInk2, fontFamily: 'Figtree_700Bold', fontSize: 16 },
-  sentBody: { color: '#54604B', fontFamily: 'Figtree_400Regular', fontSize: 13, lineHeight: 20, marginTop: 9 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  hero: { backgroundColor: colors.amber, paddingBottom: 20, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingTop: 2, paddingHorizontal: 20 },
+  heroBack: { width: 42, height: 42, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  heroBackGlyph: { fontFamily: font.bold, fontSize: 17, color: colors.amber },
+  seatsPill: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  seatsPillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.amber },
+  heroEyebrow: { fontFamily: font.extrabold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.amberInk },
+  heroTitle: { fontFamily: font.extrabold, fontSize: 26, lineHeight: 31, letterSpacing: -1, color: colors.ink, marginTop: 9 },
+  timePill: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  timePillLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.white },
+  softPill: { backgroundColor: 'rgba(255,255,255,.6)', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  softPillLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  tag: { backgroundColor: colors.zinc100, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  tagLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc700 },
+  box: { backgroundColor: colors.zinc100, borderRadius: 20, padding: 15 },
+  goingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 9 },
+  goingAvatar: { borderWidth: 2, borderColor: colors.zinc100, borderRadius: 999 },
+  goingTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
+  goingSub: { fontFamily: font.regular, fontSize: 12, color: colors.zinc500, marginTop: 2 },
+  chevron: { fontFamily: font.bold, fontSize: 16, color: colors.zinc300 },
+  specs: { marginTop: 9, paddingVertical: 4 },
+  specRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 13 },
+  specRule: { borderBottomWidth: 1, borderBottomColor: colors.zinc200 },
+  specKey: { fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500 },
+  specVal: { flexShrink: 1, textAlign: 'right', fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
+  ctaNote: { textAlign: 'center', fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500, marginTop: 12 },
+  askInput: { marginTop: 16, minHeight: 96, paddingTop: 14, textAlignVertical: 'top', fontFamily: font.semibold, fontSize: 15, lineHeight: 21 },
+  counter: { alignSelf: 'flex-end', fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.zinc400, marginTop: 8 },
+  sent: { backgroundColor: colors.mint, borderRadius: 20, padding: 16 },
+  sentTitle: { fontFamily: font.extrabold, fontSize: 16, color: colors.mintInk },
+  sentBody: { fontFamily: font.regular, fontSize: 13, lineHeight: 20, color: colors.mintInk, marginTop: 9 },
 });

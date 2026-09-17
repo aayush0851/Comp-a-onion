@@ -24,8 +24,9 @@ export type RootStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
   Settings: undefined;
+  Safety: undefined;
   Review: { planId: string };
-  Filed: undefined;
+  Filed: { rated: number; firstName?: string | null; stars?: number | null; withNote?: boolean } | undefined;
   SearchFilters: undefined;
   Notifications: undefined;
   ReviewDetail: { reviewId: string };

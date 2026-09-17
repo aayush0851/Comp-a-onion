@@ -16,12 +16,6 @@ export function dateKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function formatDateKey(key: string): string {
-  const [y, mo, da] = key.split('-').map(Number);
-  const d = new Date(y, mo - 1, da);
-  return `${WEEKDAY_LABELS[d.getDay()]}, ${MONTH_LABELS[d.getMonth()]} ${d.getDate()}`;
-}
-
 export function isDateKeyPast(key: string): boolean {
   const [y, mo, da] = key.split('-').map(Number);
   const planDate = new Date(y, mo - 1, da);
@@ -39,4 +33,15 @@ export function nextSevenDays(from: Date = new Date()): DateOption[] {
     const dateLabel = `${MONTH_LABELS[d.getMonth()]} ${d.getDate()}`;
     return { key, label, dateLabel, full: `${weekday}, ${dateLabel}` };
   });
+}
+
+// Short stamp for list rows: "7:04 PM" today, "Fri" this week, "Sep 3" otherwise.
+export function shortStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const days = (now.getTime() - d.getTime()) / 86400000;
+  if (days < 7) return WEEKDAY_LABELS[d.getDay()];
+  return `${MONTH_LABELS[d.getMonth()]} ${d.getDate()}`;
 }

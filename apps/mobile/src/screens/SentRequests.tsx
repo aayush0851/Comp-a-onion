@@ -1,27 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors } from '../theme';
-import { EmptyState, Header, ListRow } from '../components/widgets';
+import { colors, ToneKey } from '../theme';
+import { EmptyState, Header, ListRow, ListSkeleton, StatusScrim } from '../components/widgets';
+import { initialsOf } from '../data/eventDisplay';
 import { joinRequestsApi } from '../api';
 import type { ApiJoinRequest } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SentRequests'>;
 
-const STATUS_LABEL: Record<ApiJoinRequest['status'], string> = {
-  PENDING: 'Waiting on the host',
-  APPROVED: "You're in",
-  DECLINED: 'Not this time',
-  EXPIRED: 'Expired',
-};
-
-const STATUS_TONE: Record<ApiJoinRequest['status'], 'peach' | 'sage' | 'sand'> = {
-  PENDING: 'sand',
-  APPROVED: 'sage',
-  DECLINED: 'peach',
-  EXPIRED: 'peach',
+const STATUS: Record<ApiJoinRequest['status'], { meta: string; right: string; tone: ToneKey; pill?: string; pillTone?: 'amber' | 'sky' | 'ink' | 'zinc' }> = {
+  PENDING: { meta: 'Waiting on the host', right: 'Asked', tone: 'sky', pill: 'PENDING', pillTone: 'sky' },
+  APPROVED: { meta: "You're in — the chat is open", right: 'In', tone: 'amber', pill: 'IN', pillTone: 'amber' },
+  DECLINED: { meta: 'Not this time', right: 'Passed', tone: 'zinc' },
+  EXPIRED: { meta: 'Expired before the host decided', right: 'Expired', tone: 'zinc' },
 };
 
 export default function SentRequests({ navigation }: Props) {
@@ -48,43 +42,50 @@ export default function SentRequests({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
-      <Header variant="stack" title="Requests you've sent" subtitle="Everything you've asked to join, and where it stands." onBack={() => navigation.navigate('Profile')} />
-      {loading ? (
-        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
-      ) : items.length === 0 ? (
-        <View style={{ paddingTop: 40 }}>
-          <EmptyState
-            shape="square"
-            tone="sand"
-            title="Nothing sent yet"
-            body="Ask to join a plan and it'll show up here with the host's answer."
-            cta="See tonight's board"
-            onPressCta={() => navigation.navigate('Board')}
-          />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
-        >
-          {items.map((jr) => (
-            <ListRow
-              key={jr.id}
-              title={jr.event?.title ?? 'A plan'}
-              meta={STATUS_LABEL[jr.status]}
-              initials={(jr.event?.title ?? '??').slice(0, 2).toUpperCase()}
-              tone={STATUS_TONE[jr.status]}
-              chevron={jr.status !== 'DECLINED'}
-              onPress={jr.status !== 'DECLINED' ? () => navigation.navigate('Detail', { id: jr.eventId }) : undefined}
+      <ScrollView contentContainerStyle={{ paddingBottom: 34, flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.ink} />}>
+        <Header variant="stack" title="Requests you've sent" subtitle="Everything you've asked to join, and where it stands." onBack={() => navigation.navigate('Profile')} />
+        {loading ? (
+          <ListSkeleton />
+        ) : items.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 40 }}>
+            <EmptyState
+              shape="square"
+              tone="sky"
+              title="Nothing sent yet"
+              body="Ask to join a hangout and it'll show up here with the host's answer."
+              cta="See tonight's board"
+              onPressCta={() => navigation.navigate('Board')}
             />
-          ))}
-        </ScrollView>
-      )}
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {items.map((jr) => {
+              const s = STATUS[jr.status];
+              const open = jr.status !== 'DECLINED';
+              return (
+                <ListRow
+                  key={jr.id}
+                  title={jr.event?.title ?? 'A hangout'}
+                  meta={s.meta}
+                  initials={initialsOf(jr.event?.title ?? null)}
+                  squircle
+                  tone={s.tone}
+                  pill={s.pill}
+                  pillTone={s.pillTone}
+                  chevron={open}
+                  onPress={open ? () => navigation.navigate(jr.status === 'APPROVED' ? 'Chat' : 'Detail', { id: jr.eventId }) : undefined}
+                />
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+      <StatusScrim />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  list: { paddingHorizontal: 20, paddingBottom: 34, gap: 10 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  list: { paddingTop: 6, paddingHorizontal: 20, gap: 9 },
 });

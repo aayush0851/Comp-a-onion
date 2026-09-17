@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Modal, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, shadow } from '../theme';
-import { PrimaryButton } from './ui';
+import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, font } from '../theme';
+import { Btn, Sheet } from './widgets';
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 3;
@@ -30,7 +30,7 @@ function WheelColumn({ data, index, onChange }: { data: string[]; index: number;
     <ScrollView
       showsVerticalScrollIndicator={false}
       snapToInterval={ITEM_HEIGHT}
-      decelerationRate="fast"
+      decelerationRate='fast'
       contentContainerStyle={{ paddingVertical: PAD }}
       style={{ height: ITEM_HEIGHT * VISIBLE_ROWS }}
       contentOffset={{ x: 0, y: index * ITEM_HEIGHT }}
@@ -61,44 +61,26 @@ export default function TimeWheelSheet({
   const confirm = () => onConfirm(`${HOURS[hour]}:${MINUTES[minute]} ${PERIODS[period]}`);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.title}>Pick a time</Text>
-          <Text style={styles.subtitle}>Scroll each wheel to set the exact time.</Text>
-
-          <View style={styles.wheelRow}>
-            <View pointerEvents="none" style={styles.highlightBar} />
-            <WheelColumn data={HOURS} index={hour} onChange={setHour} />
-            <Text style={styles.colon}>:</Text>
-            <WheelColumn data={MINUTES} index={minute} onChange={setMinute} />
-            <WheelColumn data={PERIODS} index={period} onChange={setPeriod} />
-          </View>
-
-          <PrimaryButton label="Set time" onPress={confirm} style={{ marginTop: 22 }} />
-        </View>
+    <Sheet visible={visible} onClose={onClose} title='Pick a time' sub='Scroll each wheel to set the exact time.'>
+      <View style={styles.wheelRow}>
+        <View pointerEvents='none' style={styles.highlightBar} />
+        <WheelColumn data={HOURS} index={hour} onChange={setHour} />
+        <Text style={styles.colon}>:</Text>
+        <WheelColumn data={MINUTES} index={minute} onChange={setMinute} />
+        <WheelColumn data={PERIODS} index={period} onChange={setPeriod} />
       </View>
-    </Modal>
+      <View style={{ marginTop: 22 }}>
+        <Btn label='Set time' onPress={confirm} />
+      </View>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(46,42,38,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,
-    padding: 22, paddingBottom: 34, ...shadow.sheet,
-  },
-  title: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 19 },
-  subtitle: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13, marginTop: 5 },
-  wheelRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, position: 'relative',
-  },
-  highlightBar: {
-    position: 'absolute', left: 0, right: 0, top: PAD, height: ITEM_HEIGHT,
-    backgroundColor: colors.blush, borderRadius: radius.tile,
-  },
-  colon: { fontFamily: 'Figtree_700Bold', fontSize: 20, color: colors.ink, marginHorizontal: 2 },
+  wheelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+  highlightBar: { position: 'absolute', left: 0, right: 0, top: PAD, height: ITEM_HEIGHT, backgroundColor: colors.zinc100, borderRadius: 14 },
+  colon: { fontFamily: font.extrabold, fontSize: 20, color: colors.ink, marginHorizontal: 2 },
   wheelItem: { height: ITEM_HEIGHT, width: 64, alignItems: 'center', justifyContent: 'center' },
-  wheelLabel: { fontFamily: 'Figtree_500Medium', fontSize: 16, color: colors.faint },
-  wheelLabelActive: { fontFamily: 'Figtree_700Bold', fontSize: 19, color: colors.clayPressed },
+  wheelLabel: { fontFamily: font.medium, fontSize: 16, color: colors.zinc400 },
+  wheelLabelActive: { fontFamily: font.extrabold, fontSize: 19, color: colors.ink },
 });

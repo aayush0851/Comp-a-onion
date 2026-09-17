@@ -1,15 +1,16 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, shadow } from '../theme';
-import { Header } from '../components/widgets';
+import { colors, font, text } from '../theme';
+import { Avatar, Bubble, ChatBody, chatTime, Composer, EmptyState, Header, ratingText } from '../components/widgets';
+import { formatEventTime, initialsOf } from '../data/eventDisplay';
 import { useAppState } from '../store';
-import { chatApi } from '../api';
+import { chatApi, eventsApi, usersApi } from '../api';
 import { connectSse } from '../realtime';
 import type { ApiChatMessage } from '../api/chat';
+import type { ApiEvent, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterChat'>;
 
@@ -22,98 +23,96 @@ export default function RequesterChat({ navigation, route }: Props) {
   const { planId, requesterId, name } = route.params;
   const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [peer, setPeer] = useState<ApiUser | null>(null);
+  const [plan, setPlan] = useState<ApiEvent | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       chatApi.listDmThread(requesterId).then(setMsgs);
+      usersApi.getPublicProfile(requesterId).then(setPeer).catch(() => {});
+      if (planId) eventsApi.getEvent(planId).then(setPlan).catch(() => {});
       const disconnect = connectSse<ApiChatMessage>(
         `/users/${requesterId}/dm/stream`,
         (msg) => setMsgs((prev) => appendUnique(prev, msg)),
       );
       return disconnect;
-    }, [requesterId]),
+    }, [requesterId, planId]),
   );
 
   const send = async () => {
-    const text = draft.trim();
-    if (!text) return;
+    const t = draft.trim();
+    if (!t) return;
     setDraft('');
-    const msg = await chatApi.sendDm(requesterId, text);
+    const msg = await chatApi.sendDm(requesterId, t);
     setMsgs((prev) => appendUnique(prev, msg));
   };
+
+  const first = name.split(' ')[0];
+  const isHost = !!plan && plan.hostId === state.userId;
+  const subtitle = [peer?.aggregatedRating ? `★ ${ratingText(peer.aggregatedRating)}` : null, 'tap for profile'].filter(Boolean).join(' · ');
+  const last = msgs[msgs.length - 1];
+  const openProfile = () => navigation.navigate('RequesterProfile', { userId: requesterId });
 
   return (
     <View style={styles.screen}>
       <Header
         variant="convo"
-        title={name}
-        subtitle="tap for profile"
+        left={
+          <Pressable onPress={openProfile}>
+            <Text numberOfLines={1} style={styles.title}>{name}</Text>
+            <Text numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
+          </Pressable>
+        }
         action="Profile"
-        onAction={() => navigation.navigate('RequesterProfile', { userId: requesterId })}
+        onAction={openProfile}
         onBack={() => (planId ? navigation.navigate('PlanManage', { id: planId }) : navigation.navigate('ChatList'))}
       />
-
-      {!!planId && (
-        <Pressable onPress={() => navigation.navigate('PlanManage', { id: planId })} style={styles.planRow}>
-          <Text style={styles.planLabel} numberOfLines={1}>Back to the plan</Text>
-          <Text style={styles.planGoto}>›</Text>
-        </Pressable>
-      )}
-
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24, gap: 13 }}>
-        {msgs.length === 0 && (
-          <View style={styles.emptyWrap}>
-            <Feather name="message-circle" size={40} color={colors.faint} />
-            <Text style={styles.emptyNote}>No messages yet — say hi to start the conversation.</Text>
+      <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder={`Message ${first}`} />}>
+        {!!plan && (
+          <View style={styles.about}>
+            <Text style={text.fieldLabel}>About this chat</Text>
+            <Pressable
+              onPress={() => navigation.navigate(isHost ? 'PlanManage' : 'Detail', { id: plan.id })}
+              style={styles.aboutRow}
+            >
+              <Avatar initials={initialsOf(plan.title).slice(0, 1)} size={38} rounded={13} tone="amber" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aboutTitle} numberOfLines={1}>{plan.title}</Text>
+                <Text style={styles.aboutSub} numberOfLines={1}>
+                  {isHost ? `${first} asked to join` : 'You asked to join'} · {formatEventTime(plan.time)}
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
           </View>
         )}
-        {msgs.map((m) => {
-          const mine = m.authorId === state.userId;
-          return (
-            <View key={m.id} style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                <Text style={[styles.bubbleText, { color: mine ? '#fff' : colors.ink }]}>{m.text}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      <View style={styles.composer}>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Say something"
-          placeholderTextColor={colors.faint}
-          style={styles.input}
-        />
-        <Pressable onPress={send} style={styles.sendBtn}>
-          <Text style={styles.sendLabel}>Send</Text>
-        </Pressable>
-      </View>
+        {msgs.length === 0 && (
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <EmptyState shape="bubble" tone="sky" title={`Say hi to ${first}`} body="No messages yet. Keep it short — a hello is plenty." />
+          </View>
+        )}
+        {msgs.map((m) => (
+          <Bubble
+            key={m.id}
+            m={{ id: m.id, text: m.text, mine: m.authorId === state.userId, authorInitials: initialsOf(m.author.name), authorPhoto: m.author.profilePicture, authorTone: [colors.amber, colors.ink] }}
+          />
+        ))}
+        {!!last && last.authorId === state.userId && (
+          <Text style={styles.meta}>Sent · {chatTime(last.createdAt)}</Text>
+        )}
+      </ChatBody>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  planRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface,
-    marginHorizontal: 16, marginTop: 12, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14, ...shadow.inner,
-  },
-  planLabel: { flex: 1, color: colors.inkSecondary, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
-  planGoto: { color: colors.faint, fontFamily: 'Figtree_700Bold', fontSize: 15 },
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  emptyNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 13, textAlign: 'center' },
-  bubble: { maxWidth: '80%', paddingVertical: 12, paddingHorizontal: 14, ...shadow.chip },
-  bubbleMine: { backgroundColor: colors.clay, borderRadius: 20, borderBottomRightRadius: 6 },
-  bubbleOther: { backgroundColor: colors.surface, borderRadius: 20, borderBottomLeftRadius: 6 },
-  bubbleText: { fontFamily: 'Figtree_400Regular', fontSize: 13.5, lineHeight: 19 },
-  composer: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 24, alignItems: 'center' },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999,
-    paddingVertical: 14, paddingHorizontal: 16, fontFamily: 'Figtree_400Regular', fontSize: 14, color: colors.ink,
-  },
-  sendBtn: { backgroundColor: colors.clay, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 20 },
-  sendLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 14 },
+  screen: { flex: 1, backgroundColor: colors.zinc100 },
+  title: { fontFamily: font.bold, fontSize: 16.5, letterSpacing: -0.4, color: colors.ink },
+  subtitle: { fontFamily: font.medium, fontSize: 12, color: colors.zinc500, marginTop: 2 },
+  about: { backgroundColor: colors.white, borderRadius: 20, padding: 15 },
+  aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 11 },
+  aboutTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
+  aboutSub: { fontFamily: font.regular, fontSize: 11.5, color: colors.zinc500, marginTop: 2 },
+  chevron: { fontFamily: font.bold, fontSize: 16, color: colors.zinc300 },
+  meta: { alignSelf: 'flex-end', fontFamily: font.semibold, fontSize: 10.5, color: colors.zinc400 },
 });

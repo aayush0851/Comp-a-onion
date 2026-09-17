@@ -1,61 +1,69 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, Tone, tones } from '../../theme';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, font, ToneKey, tones } from '../../theme';
+import { Avatar } from './Avatar';
+import { ratingText } from './Stars';
+
+export function VerifiedDot({ size = 15 }: { size?: number }) {
+  return (
+    <View style={[styles.verified, { width: size, height: size, minWidth: size }]}>
+      <Text style={[styles.verifiedGlyph, { fontSize: size * 0.6 }]}>✓</Text>
+    </View>
+  );
+}
 
 export function UserChip({
-  name, initials, photo, rating, count, verified = true, size = 'm', tone = 'peach', meta, onPress,
+  name, initials, photo, age, rating, meta, verified = true, size = 'm', tone = 'amber', squircle, chevron, onPress,
 }: {
   name: string;
   initials: string;
   photo?: string | null;
+  age?: number | null;
   rating?: number | null;
-  count?: number | null;
+  meta?: string | null;
   verified?: boolean;
   size?: 's' | 'm' | 'l';
-  tone?: Tone;
-  meta?: string | null;
+  tone?: ToneKey;
+  squircle?: boolean;
+  chevron?: boolean;
   onPress?: () => void;
 }) {
-  const av = { s: 36, m: 44, l: 56 }[size];
-  const ifs = { s: 11, m: 13, l: 16 }[size];
-  const nfs = { s: 13.5, m: 15, l: 17 }[size];
-  const t = tones[tone];
+  const av = { s: 38, m: 46, l: 58 }[size];
+  const nfs = { s: 13.5, m: 15, l: 17.5 }[size];
+  const toneColors = tone === 'zinc' ? ([colors.zinc100, colors.zinc700] as const) : tones[tone];
   return (
-    <Pressable onPress={onPress} style={styles.userChip}>
-      {photo ? (
-        <Image source={{ uri: photo }} style={{ width: av, height: av, minWidth: av, borderRadius: av / 2 }} />
-      ) : (
-        <View style={{ width: av, height: av, minWidth: av, borderRadius: av / 2, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: ifs, color: t.fg }}>{initials}</Text>
-        </View>
-      )}
+    <Pressable onPress={onPress} disabled={!onPress} style={styles.chip}>
+      <Avatar initials={initials} photo={photo} size={av} colorsOverride={toneColors} rounded={squircle ? 16 : undefined} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ fontFamily: 'Figtree_700Bold', fontSize: nfs, letterSpacing: -0.2, color: colors.ink, flexShrink: 1 }}>{name}</Text>
-          {verified && (
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedGlyph}>✓</Text>
-            </View>
-          )}
+          <Text numberOfLines={1} style={[styles.name, { fontSize: nfs }]}>{name}</Text>
+          {!!age && <Text style={[styles.age, { fontSize: nfs }]}>, {age}</Text>}
+          {verified && <VerifiedDot />}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
-          {!!rating && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Text style={{ fontSize: 10, color: colors.clay }}>★</Text>
-              <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 11.5, color: colors.inkSecondary }}>{rating.toFixed(1)}</Text>
-              {!!count && <Text style={{ fontFamily: 'Figtree_500Medium', fontSize: 11.5, color: colors.faint }}>· {count} plans</Text>}
-            </View>
-          )}
-          {!!meta && <Text numberOfLines={1} style={{ fontFamily: 'Figtree_500Medium', fontSize: 11.5, color: colors.muted }}>{meta}</Text>}
-        </View>
+        {(!!rating || !!meta) && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 3 }}>
+            {!!rating && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Text style={styles.star}>★</Text>
+                <Text style={styles.rating}>{ratingText(rating)}</Text>
+              </View>
+            )}
+            {!!meta && <Text numberOfLines={1} style={styles.meta}>{meta}</Text>}
+          </View>
+        )}
       </View>
-      {onPress && <Text style={styles.chevron}>›</Text>}
+      {chevron && <Text style={styles.chevron}>›</Text>}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  userChip: { flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: 44 },
-  verifiedBadge: { width: 15, height: 15, minWidth: 15, borderRadius: 999, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center' },
-  verifiedGlyph: { fontFamily: 'Figtree_800ExtraBold', fontSize: 9, color: '#fff' },
-  chevron: { fontFamily: 'Figtree_700Bold', fontSize: 15, color: '#C3B8AD' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  name: { fontFamily: font.bold, letterSpacing: -0.3, color: colors.ink, flexShrink: 1 },
+  age: { fontFamily: font.medium, color: colors.zinc400, marginLeft: -6 },
+  verified: { borderRadius: 999, backgroundColor: colors.skyBright, alignItems: 'center', justifyContent: 'center' },
+  verifiedGlyph: { fontFamily: font.extrabold, color: colors.white },
+  star: { fontSize: 10, color: colors.amber },
+  rating: { fontFamily: font.bold, fontSize: 11.5, color: colors.ink },
+  meta: { fontFamily: font.medium, fontSize: 11.5, color: colors.zinc500, flexShrink: 1 },
+  chevron: { fontFamily: font.bold, fontSize: 15, color: colors.zinc300 },
 });

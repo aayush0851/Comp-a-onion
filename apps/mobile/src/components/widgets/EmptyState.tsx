@@ -1,43 +1,41 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, Tone } from '../../theme';
+import { colors, font } from '../../theme';
 import { Btn, BtnVariant } from './Btn';
 
+const GLYPH_TONES = {
+  amber: [colors.amberSoft, colors.amberDeep],
+  sky: [colors.sky, colors.skyDeep],
+  zinc: [colors.zinc100, colors.zinc400],
+  ink: [colors.ink, colors.amber],
+} as const;
+
 export function EmptyState({
-  shape = 'circle', tone = 'peach', title, body, cta, ctaVariant = 'primary', onPressCta,
+  shape = 'circle', tone = 'amber', title, body, cta, ctaVariant = 'primary', onPressCta,
 }: {
   shape?: 'circle' | 'square' | 'bubble';
-  tone?: Tone;
+  tone?: keyof typeof GLYPH_TONES;
   title: string;
   body: string;
   cta?: string | null;
   ctaVariant?: BtnVariant;
   onPressCta?: () => void;
 }) {
-  const glyphTones: Record<Tone, { bg: string; fg: string }> = {
-    peach: { bg: '#F6E4DA', fg: colors.clay },
-    sage: { bg: '#E8EDE3', fg: colors.sage },
-    sand: { bg: '#EFE6DC', fg: colors.faint },
-  };
-  const g = glyphTones[tone];
-  const shapeRadius = shape === 'square' ? 9 : shape === 'bubble' ? undefined : 999;
+  const [bg, fg] = GLYPH_TONES[tone];
+  const inner =
+    shape === 'square' ? { borderRadius: 9 }
+      : shape === 'bubble' ? { borderTopLeftRadius: 10, borderTopRightRadius: 10, borderBottomRightRadius: 10, borderBottomLeftRadius: 2 }
+        : { borderRadius: 999 };
   return (
-    <View style={{ alignItems: 'center', paddingHorizontal: 34, paddingVertical: 28 }}>
-      <View style={{ width: 74, height: 74, borderRadius: 999, backgroundColor: g.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <View
-          style={[
-            { width: 30, height: 30, borderWidth: 2, borderColor: g.fg, alignItems: 'center', justifyContent: 'center' },
-            shape === 'bubble'
-              ? { borderTopLeftRadius: 10, borderTopRightRadius: 10, borderBottomRightRadius: 10, borderBottomLeftRadius: 2 }
-              : { borderRadius: shapeRadius },
-          ]}
-        >
-          {shape === 'circle' && <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: g.fg }} />}
+    <View style={styles.wrap}>
+      <View style={[styles.glyph, { backgroundColor: bg, borderRadius: shape === 'square' ? 24 : 999 }]}>
+        <View style={[styles.shape, inner, { borderColor: fg }]}>
+          {shape === 'circle' && <View style={[styles.dot, { backgroundColor: fg }]} />}
         </View>
       </View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyBody}>{body}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.body}>{body}</Text>
       {!!cta && (
-        <View style={{ width: '100%', marginTop: 22 }}>
+        <View style={{ alignSelf: 'stretch', marginTop: 22 }}>
           <Btn label={cta} variant={ctaVariant} onPress={onPressCta} />
         </View>
       )}
@@ -46,6 +44,10 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create({
-  emptyTitle: { fontFamily: 'Figtree_700Bold', fontSize: 20, lineHeight: 25, letterSpacing: -0.4, color: colors.ink, marginTop: 20, textAlign: 'center' },
-  emptyBody: { fontFamily: 'Newsreader_400Regular_Italic', fontSize: 14, lineHeight: 21, color: colors.muted, marginTop: 8, textAlign: 'center' },
+  wrap: { alignItems: 'center', paddingHorizontal: 34, paddingVertical: 28 },
+  glyph: { width: 76, height: 76, alignItems: 'center', justifyContent: 'center' },
+  shape: { width: 30, height: 30, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 9, height: 9, borderRadius: 999 },
+  title: { fontFamily: font.extrabold, fontSize: 20, lineHeight: 26, letterSpacing: -0.6, color: colors.ink, marginTop: 20, textAlign: 'center' },
+  body: { fontFamily: font.regular, fontSize: 14, lineHeight: 21, color: colors.zinc500, marginTop: 8, textAlign: 'center' },
 });

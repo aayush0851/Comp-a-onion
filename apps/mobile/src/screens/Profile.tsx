@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, scale, shadow } from '../theme';
-import { Chip, OutlineButton, PencilIcon, UploadIcon } from '../components/ui';
-import { Header, Stars, TabBar } from '../components/widgets';
+import { colors, font, text } from '../theme';
+import { Avatar, Badge, Btn, FilterChips, ListRow, ratingText, Sheet, SheetRow, Stars, StatTiles, TabBar, StatusScrim } from '../components/widgets';
 import { VIBE_TAGS } from '../data';
+import { initialsOf } from '../data/eventDisplay';
 import { useAppDispatch, useAppState } from '../store';
 import { eventsApi, joinRequestsApi, reviewsApi, usersApi } from '../api';
 import { uploadMedia } from '../firebase';
@@ -15,22 +16,30 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 type PendingReview = { eventId: string; title: string };
 
+export function memberSince(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
 export default function Profile({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
   const [editingVibe, setEditingVibe] = useState(false);
   const [rating, setRating] = useState(0);
+  const [since, setSince] = useState<string | null>(null);
+  const [serverPhoto, setServerPhoto] = useState<string | null>(null);
   const [reviewCount, setReviewCount] = useState(0);
   const [hostedCount, setHostedCount] = useState(0);
   const [joinedCount, setJoinedCount] = useState(0);
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const displayName = state.name.trim() || 'You';
-  const initials = state.name.trim() ? state.name.trim().slice(0, 2).toUpperCase() : 'YO';
 
   useEffect(() => {
-    usersApi.getMe().then((me) => setRating(me.aggregatedRating));
+    usersApi.getMe().then((me) => { setRating(me.aggregatedRating); setSince(memberSince(me.createdAt)); setServerPhoto(me.profilePicture); });
     reviewsApi.listReceived().then((r) => setReviewCount(r.length));
     joinRequestsApi.listMine().then((jrs) => setJoinedCount(jrs.filter((jr) => jr.status === 'APPROVED').length));
 
@@ -72,115 +81,107 @@ export default function Profile({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="home"
-        title={displayName}
-        subtitle="Joined March · SoMa"
-        action="Edit"
-        onAction={() => navigation.navigate('EditProfile')}
-      />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          <View style={styles.avatarWrap}>
-            {state.profilePhoto ? (
-              <Image source={{ uri: state.profilePhoto }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}><Text style={styles.avatarLabel}>{initials}</Text></View>
-            )}
-            <Pressable disabled={uploadingPhoto} onPress={() => setShowPhotoSheet(true)} style={styles.avatarEditBadge}>
-              <UploadIcon size={13} color="#fff" />
-            </Pressable>
-          </View>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statNum}>{hostedCount + joinedCount}</Text>
-              <Text style={styles.statLabel}>plans</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statNum}>{hostedCount}</Text>
-              <Text style={styles.statLabel}>hosted</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={[styles.statNum, { color: colors.clayPressed }]}>{rating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>rating</Text>
-            </View>
-          </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        <View style={[styles.topRow, { paddingTop: insets.top + 2 }]}>
+          <Text style={styles.id}>ID # {(state.userId ?? '').slice(-4).toUpperCase() || '····'}</Text>
+          <Pressable onPress={() => navigation.navigate('EditProfile')} style={styles.editPill}>
+            <Text style={styles.editLabel}>Edit</Text>
+          </Pressable>
         </View>
 
-        <Pressable style={styles.card} onPress={() => navigation.navigate('MyReviews')}>
-          <View style={{ flex: 1 }}>
-            <Text style={[scale.inline, { fontSize: 14.5 }]}>Ratings & feedback</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 }}>
-              <Stars value={rating} size="s" showValue={false} />
-              <Text style={styles.cardMeta}>{reviewCount} ratings</Text>
-            </View>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
-
-        {!!state.userId && (
-          <Pressable style={styles.card} onPress={() => navigation.navigate('RequesterProfile', { userId: state.userId! })}>
-            <View style={{ flex: 1 }}>
-              <Text style={[scale.inline, { fontSize: 14.5 }]}>View my profile</Text>
-              <Text style={[styles.cardMeta, { marginTop: 6 }]}>See what others see when they tap your name</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
+        <View style={styles.identity}>
+          <Pressable disabled={uploadingPhoto} onPress={() => setShowPhotoSheet(true)}>
+            <Avatar initials={initialsOf(state.name || null)} photo={state.profilePhoto ?? serverPhoto} size={72} rounded={22} tone="amber" />
+            <View style={styles.photoBadge}><Text style={styles.photoBadgeGlyph}>{uploadingPhoto ? '…' : '↑'}</Text></View>
           </Pressable>
-        )}
-
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={styles.label}>Edit highlights</Text>
-            <Pressable onPress={() => navigation.navigate('Highlights', { mode: 'edit' })}>
-              <PencilIcon size={13} color={colors.ink} />
-            </Pressable>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+            <Text style={[text.eyebrow, { fontSize: 9.5, marginTop: 5 }]}>#Checked member{since ? ` · since ${since}` : ''}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.label}>What I'm up for</Text>
-            <Pressable onPress={() => setEditingVibe((v) => !v)}>
-              <Text style={styles.editLink}>{editingVibe ? 'Done' : 'Edit'}</Text>
-            </Pressable>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-            {editingVibe ? VIBE_TAGS.map((t) => (
-              <Chip key={t} label={t} selected={state.vibeTags.includes(t)} onPress={() => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: t })} />
-            )) : state.vibeTags.length > 0 ? state.vibeTags.map((t) => (
-              <View key={t} style={styles.outlinePill}><Text style={styles.outlinePillLabel}>{t}</Text></View>
-            )) : (
-              <Text style={styles.cardMeta}>Nothing yet — tap Edit to add a few.</Text>
-            )}
-          </View>
+          <StatTiles
+            highlight={2}
+            tiles={[
+              { value: rating ? `★ ${ratingText(rating)}` : '—', label: 'Rating' },
+              { value: String(hostedCount + joinedCount), label: 'Meetups' },
+              { value: String(hostedCount), label: 'Hosted' },
+            ]}
+          />
         </View>
 
-        {!!pendingReview && (
-          <Pressable style={styles.reviewBanner} onPress={() => navigation.navigate('Review', { planId: pendingReview.eventId })}>
+        <View style={[styles.section, { gap: 12 }]}>
+          <Pressable onPress={() => navigation.navigate('MyReviews')} style={styles.ratingsCard}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.reviewTitle}>A review is waiting</Text>
-              <Text style={styles.reviewSub}>{pendingReview.title} — the setup and who showed up</Text>
+              <Text style={styles.ratingsTitle}>Ratings & feedback</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <Stars value={rating} size="s" showValue={false} />
+                <Text style={styles.ratingsMeta}>{reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}</Text>
+              </View>
             </View>
-            <Text style={[styles.chevron, { color: colors.clay }]}>›</Text>
+            <Text style={styles.ratingsChevron}>›</Text>
           </Pressable>
-        )}
 
-        <Pressable style={styles.card} onPress={() => navigation.navigate('SentRequests')}>
-          <View style={{ flex: 1 }}>
-            <Text style={[scale.inline, { fontSize: 14.5 }]}>Requests you've sent</Text>
+          {!!pendingReview && (
+            <Pressable onPress={() => navigation.navigate('Review', { planId: pendingReview.eventId })} style={styles.pending}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingTitle}>A review is waiting</Text>
+                <Text style={styles.pendingSub} numberOfLines={1}>{pendingReview.title} — the setup and who showed up</Text>
+              </View>
+              <Text style={[styles.ratingsChevron, { color: colors.ink }]}>›</Text>
+            </Pressable>
+          )}
+
+          <View style={styles.upFor}>
+            <View style={styles.upForHead}>
+              <Text style={text.fieldLabel}>Up for</Text>
+              <Pressable onPress={() => setEditingVibe((v) => !v)} hitSlop={8}>
+                <Text style={styles.upForEdit}>{editingVibe ? 'Done' : 'Edit'}</Text>
+              </Pressable>
+            </View>
+            <View style={{ marginTop: 11 }}>
+              {editingVibe ? (
+                <FilterChips
+                  multi
+                  activeTone="amber"
+                  items={VIBE_TAGS}
+                  active={VIBE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+                  onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: VIBE_TAGS[i] })}
+                />
+              ) : state.vibeTags.length > 0 ? (
+                <View style={styles.tags}>
+                  {state.vibeTags.map((t) => (
+                    <View key={t} style={styles.tag}><Text style={styles.tagLabel}>{t}</Text></View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.muted}>Nothing yet — tap Edit to add a few.</Text>
+              )}
+            </View>
           </View>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
 
-        <Pressable onPress={() => navigation.navigate('Settings')} style={styles.settingsLink}>
-          <Text style={styles.settingsLinkLabel}>Settings</Text>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
+          <View style={styles.badges}>
+            <Badge label="Verified Identity" tone="sky" />
+            {rating >= 4.5 && <Badge label="Highly rated" tone="amber" glyph="★" />}
+            {hostedCount > 0 && <Badge label={`Hosted ${hostedCount}`} tone="mint" />}
+          </View>
+
+          <View style={{ gap: 9 }}>
+            <ListRow title="Edit highlights" meta="Clips and photos on your profile" chevron onPress={() => navigation.navigate('Highlights', { mode: 'edit' })} />
+            {!!state.userId && (
+              <ListRow title="View my profile" meta="See what others see when they tap your name" chevron onPress={() => navigation.navigate('RequesterProfile', { userId: state.userId! })} />
+            )}
+            <ListRow title="Requests you've sent" meta="Everything you've asked to join" chevron onPress={() => navigation.navigate('SentRequests')} />
+            <ListRow title="Notifications" meta="Requests, approvals and ratings" chevron onPress={() => navigation.navigate('Notifications')} />
+            <ListRow title="Settings" meta="Visibility, notifications, safety" chevron onPress={() => navigation.navigate('Settings')} />
+          </View>
+        </View>
       </ScrollView>
+      <StatusScrim />
 
       <TabBar
         active="me"
-        unread={false}
         onPress={(key) => {
           if (key === 'plans') navigation.navigate('MyPlans');
           else if (key === 'chats') navigation.navigate('ChatList');
@@ -188,59 +189,41 @@ export default function Profile({ navigation }: Props) {
         }}
       />
 
-      <Modal visible={showPhotoSheet} transparent animationType="fade" onRequestClose={() => setShowPhotoSheet(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setShowPhotoSheet(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <Text style={styles.sheetTitle}>Update your photo</Text>
-            <Pressable onPress={() => pick('camera')} style={styles.sheetRow}>
-              <Text style={styles.sheetRowLabel}>Take a photo</Text>
-            </Pressable>
-            <Pressable onPress={() => pick('library')} style={styles.sheetRow}>
-              <Text style={styles.sheetRowLabel}>Choose from library</Text>
-            </Pressable>
-            <OutlineButton label="Cancel" onPress={() => setShowPhotoSheet(false)} style={{ marginTop: 8 }} />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <Sheet visible={showPhotoSheet} onClose={() => setShowPhotoSheet(false)} title="Update your photo" sub="Shown on your profile, never on the board.">
+        <View style={{ marginTop: 8 }}>
+          <SheetRow label="Take a photo" onPress={() => pick('camera')} />
+          <SheetRow label="Choose from library" onPress={() => pick('library')} />
+        </View>
+        <View style={{ marginTop: 14 }}><Btn label="Cancel" variant="ghost" onPress={() => setShowPhotoSheet(false)} /></View>
+      </Sheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  avatarWrap: {},
-  avatar: { width: 74, height: 74, borderRadius: 999, borderWidth: 1.5, borderColor: colors.clay },
-  avatarPlaceholder: { backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  avatarLabel: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 22 },
-  avatarEditBadge: {
-    position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14,
-    backgroundColor: colors.clay, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: colors.ground,
-  },
-  statsRow: { flex: 1, flexDirection: 'row', gap: 9 },
-  statTile: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 13, alignItems: 'center', ...shadow.inner },
-  statNum: { fontFamily: 'Figtree_800ExtraBold', fontSize: 21, letterSpacing: -0.6, color: colors.ink },
-  statLabel: { fontSize: 10.5, color: colors.muted, marginTop: 2 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 20, padding: 15, ...shadow.inner },
-  cardMeta: { fontSize: 12, color: colors.muted },
-  chevron: { fontFamily: 'Figtree_700Bold', fontSize: 16, color: '#C3B8AD' },
-  label: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.faint },
-  section: {},
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  editLink: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 12 },
-  outlinePill: { borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 13 },
-  outlinePillLabel: { color: colors.inkSecondary, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
-  reviewBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 20, padding: 17 },
-  reviewTitle: { color: colors.ground, fontFamily: 'Figtree_700Bold', fontSize: 15 },
-  reviewSub: { color: 'rgba(251,246,240,.6)', fontFamily: 'Figtree_400Regular', fontSize: 12.5, marginTop: 4 },
-  settingsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  settingsLinkLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 13.5, color: colors.inkSecondary },
-  backdrop: { flex: 1, backgroundColor: 'rgba(46,42,38,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,
-    padding: 22, paddingBottom: 34,
-  },
-  sheetTitle: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 17, marginBottom: 8 },
-  sheetRow: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: colors.lineCard },
-  sheetRowLabel: { color: colors.ink, fontFamily: 'Figtree_600SemiBold', fontSize: 15 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingHorizontal: 20 },
+  id: { fontFamily: font.monoSemibold, fontSize: 11, color: colors.zinc400 },
+  editPill: { backgroundColor: colors.zinc100, borderRadius: 999, paddingHorizontal: 15, minHeight: 42, justifyContent: 'center' },
+  editLabel: { fontFamily: font.bold, fontSize: 12, color: colors.ink },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 10, paddingHorizontal: 20 },
+  photoBadge: { position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 999, backgroundColor: colors.ink, borderWidth: 2, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  photoBadgeGlyph: { fontFamily: font.extrabold, fontSize: 12, color: colors.amber },
+  name: { fontFamily: font.extrabold, fontSize: 22, letterSpacing: -0.8, color: colors.ink },
+  section: { paddingTop: 18, paddingHorizontal: 20 },
+  ratingsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.ink, borderRadius: 20, padding: 16 },
+  ratingsTitle: { fontFamily: font.extrabold, fontSize: 14.5, color: colors.white },
+  ratingsMeta: { fontFamily: font.semibold, fontSize: 12, color: colors.zinc400 },
+  ratingsChevron: { fontFamily: font.bold, fontSize: 16, color: colors.amber },
+  pending: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.amber, borderRadius: 20, padding: 16 },
+  pendingTitle: { fontFamily: font.extrabold, fontSize: 14.5, color: colors.ink },
+  pendingSub: { fontFamily: font.regular, fontSize: 12.5, color: colors.amberInk, marginTop: 4 },
+  upFor: { backgroundColor: colors.zinc100, borderRadius: 20, padding: 16 },
+  upForHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  upForEdit: { fontFamily: font.bold, fontSize: 12, color: colors.ink },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  tag: { backgroundColor: colors.white, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  tagLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc700 },
+  muted: { fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
 });

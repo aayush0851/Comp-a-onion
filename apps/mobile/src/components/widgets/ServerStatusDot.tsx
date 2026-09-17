@@ -5,10 +5,10 @@ import { API_BASE_URL } from '../../config';
 type Status = 'unknown' | 'up' | 'down' | 'booting';
 
 const DOT_COLOR: Record<Status, string> = {
-  unknown: '#C3B8AD',
-  up: '#4F9A5C',
-  down: '#C0392B',
-  booting: '#D9A441',
+  unknown: '#A1A1AA',
+  up: '#047857',
+  down: '#B91C1C',
+  booting: '#FBBF24',
 };
 
 const POLL_MS = 3000;

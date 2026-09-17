@@ -1,92 +1,91 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, scale, shadow } from '../../theme';
-import { SERVER_STATUS_INDICATOR_ENABLED } from '../../data';
+import { colors, font, text } from '../../theme';
 import { BackButton } from './BackButton';
-import { ServerStatusDot, useServerStatus } from './ServerStatusDot';
 import { Steps } from './Steps';
+import { Wordmark } from './Wordmark';
 
 export type HeaderVariant = 'home' | 'stack' | 'convo';
 
 export function Header({
-  variant = 'stack', title, subtitle, eyebrow, action, actionDot, onAction, onBack,
-  stepsTotal, stepsCurrent, ink = colors.ink,
+  variant = 'stack', title, subtitle, eyebrow, centerLabel, action, actionTone = 'zinc', actionDot, onAction, onBack,
+  stepsTotal, stepsCurrent, ink = colors.ink, left, right, hideTitle,
 }: {
   variant?: HeaderVariant;
-  title: string;
+  title?: string;
   subtitle?: string | null;
   eyebrow?: string | null;
+  centerLabel?: string | null;
   action?: string | null;
+  actionTone?: 'zinc' | 'amber';
   actionDot?: boolean;
   onAction?: () => void;
   onBack?: () => void;
   stepsTotal?: number;
   stepsCurrent?: number;
   ink?: string;
+  left?: ReactNode;
+  right?: ReactNode;
+  hideTitle?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const convo = variant === 'convo';
-  const showBack = variant === 'stack' || convo;
-  const showWordmark = variant === 'home';
+  const onDark = ink !== colors.ink;
 
   return (
-    <View style={[{ paddingTop: insets.top + 16 }, !convo && styles.headerBottom, convo && styles.headerConvoBar]}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          {showBack && <BackButton onPress={onBack} />}
-          {showWordmark && (SERVER_STATUS_INDICATOR_ENABLED ? <Wordmark ink={ink} /> : <Text style={[scale.inline, styles.wordmark, { color: ink }]}>companion</Text>)}
-          {convo && (
-            <View style={{ minWidth: 0, flex: 1 }}>
-              <Text numberOfLines={1} style={scale.inline}>{title}</Text>
-              {!!subtitle && <Text numberOfLines={1} style={styles.convoSubtitle}>{subtitle}</Text>}
-            </View>
+    <View style={[{ paddingTop: insets.top + 2 }, convo && styles.convoBar]}>
+      <View style={styles.inner}>
+        <View style={styles.row}>
+          <View style={styles.left}>
+            {variant !== 'home' && <BackButton onPress={onBack} dark={onDark} />}
+            {variant === 'home' && <Wordmark ink={ink} onDark={onDark} />}
+            {convo && (
+              <View style={{ minWidth: 0, flex: 1 }}>
+                {left ?? (
+                  <>
+                    <Text numberOfLines={1} style={styles.inlineTitle}>{title}</Text>
+                    {!!subtitle && <Text numberOfLines={1} style={styles.inlineSubtitle}>{subtitle}</Text>}
+                  </>
+                )}
+              </View>
+            )}
+            {variant === 'stack' && !!centerLabel && <Text style={styles.centerLabel}>{centerLabel}</Text>}
+          </View>
+          {right}
+          {!!action && (
+            <Pressable onPress={onAction} style={[styles.action, { backgroundColor: actionTone === 'amber' ? colors.amber : colors.zinc100 }]}>
+              {actionDot && <View style={styles.actionDot} />}
+              <Text style={styles.actionLabel} numberOfLines={1}>{action}</Text>
+            </Pressable>
           )}
         </View>
-        {!!action && (
-          <Pressable onPress={onAction} style={styles.actionPill}>
-            {actionDot && <View style={styles.actionDot} />}
-            <Text style={styles.actionLabel} numberOfLines={1}>{action}</Text>
-          </Pressable>
+        {!!stepsTotal && (
+          <View style={{ marginTop: 14 }}>
+            <Steps total={stepsTotal} current={stepsCurrent ?? 1} />
+          </View>
+        )}
+        {!convo && !hideTitle && !!title && (
+          <View style={{ marginTop: 14 }}>
+            {!!eyebrow && <Text style={[text.eyebrow, { marginBottom: 9 }]}>{eyebrow}</Text>}
+            <Text style={[text.bigTitle, { color: ink }]}>{title}</Text>
+            {!!subtitle && <Text style={[text.subtitle, { marginTop: 8 }]}>{subtitle}</Text>}
+          </View>
         )}
       </View>
-      {!!stepsTotal && (
-        <View style={{ marginTop: 14, paddingHorizontal: 20 }}>
-          <Steps total={stepsTotal} current={stepsCurrent ?? 1} />
-        </View>
-      )}
-      {!convo && (
-        <View style={{ marginTop: 14, paddingHorizontal: 20 }}>
-          {!!eyebrow && <Text style={scale.eyebrow}>{eyebrow}</Text>}
-          <Text style={[scale.display, { color: ink, marginTop: eyebrow ? 8 : 0 }]}>{title}</Text>
-          {!!subtitle && <Text style={[scale.accent, { marginTop: 7 }]}>{subtitle}</Text>}
-        </View>
-      )}
     </View>
   );
 }
 
-function Wordmark({ ink }: { ink: string }) {
-  const { status, wake } = useServerStatus();
-  return (
-    <Pressable onPress={wake} hitSlop={8} style={styles.wordmarkRow}>
-      <ServerStatusDot status={status} />
-      <Text style={[scale.inline, styles.wordmark, { color: ink }]}>companion</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44, paddingHorizontal: 20 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 },
-  headerConvoBar: { backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line, ...shadow.inner, paddingBottom: 16 },
-  headerBottom: { paddingBottom: 16 },
-  convoSubtitle: { fontFamily: 'Figtree_500Medium', fontSize: 12, color: colors.muted, marginTop: 2 },
-  wordmark: { fontFamily: 'Figtree_800ExtraBold', fontSize: 20, letterSpacing: -0.3 },
-  wordmarkRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  actionPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
-    borderRadius: 999, paddingHorizontal: 14, minHeight: 40, ...shadow.inner,
-  },
-  actionDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: colors.clay },
-  actionLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12, color: colors.inkSecondary },
+  convoBar: { backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.zinc200 },
+  inner: { paddingTop: 2, paddingHorizontal: 20, paddingBottom: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 },
+  inlineTitle: { fontFamily: font.bold, fontSize: 16.5, letterSpacing: -0.4, color: colors.ink },
+  inlineSubtitle: { fontFamily: font.medium, fontSize: 12, color: colors.zinc500, marginTop: 2 },
+  centerLabel: { flex: 1, textAlign: 'center', marginRight: 42, fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 999, paddingHorizontal: 15, minHeight: 42 },
+  actionDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: colors.ink },
+  actionLabel: { fontFamily: font.bold, fontSize: 12, letterSpacing: -0.1, color: colors.ink },
 });

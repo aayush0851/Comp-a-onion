@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState, type ReactNode } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
-import { colors, shadow } from '../theme';
-import { Header } from '../components/widgets';
+import { colors, font } from '../theme';
+import { EmptyState, Header, ListSkeleton, SectionLabel, StatusScrim } from '../components/widgets';
 import { notificationsApi, joinRequestsApi } from '../api';
 import { connectSse } from '../realtime';
 import type { ApiNotification } from '../api/notifications';
@@ -25,27 +25,25 @@ function timeAgo(iso: string): string {
 }
 
 function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.toDateString() === now.toDateString();
+  return new Date(iso).toDateString() === new Date().toDateString();
 }
 
-function describe(n: ApiNotification): React.ReactNode {
-  const event = n.eventTitle ?? 'a plan';
+function describe(n: ApiNotification): ReactNode {
+  const event = n.eventTitle ?? 'a hangout';
   const actor = n.actorName ?? 'Someone';
   switch (n.kind) {
     case 'JOIN_REQUEST':
-      return <Text style={styles.line}><Text style={styles.strong}>{actor}</Text> asked to join <Text style={styles.strong}>{event}</Text></Text>;
+      return <><Text style={styles.strong}>{actor}</Text> asked to join <Text style={styles.strong}>{event}</Text></>;
     case 'APPROVAL':
       return n.payload.decision === 'APPROVED'
-        ? <Text style={styles.line}>You're in — <Text style={styles.strong}>{event}</Text></Text>
-        : <Text style={styles.line}>Not this time — <Text style={styles.strong}>{event}</Text></Text>;
+        ? <>You're in — <Text style={styles.strong}>{event}</Text></>
+        : <>Not this time — <Text style={styles.strong}>{event}</Text></>;
     case 'RATING_RECEIVED':
-      return <Text style={styles.line}><Text style={styles.strong}>{actor}</Text> rated you</Text>;
+      return <><Text style={styles.strong}>{actor}</Text> rated you</>;
     case 'REVIEW_UNLOCKED':
-      return <Text style={styles.line}>Your ratings for <Text style={styles.strong}>{event}</Text> are unlocked</Text>;
+      return <>Your ratings for <Text style={styles.strong}>{event}</Text> are unlocked</>;
     default:
-      return <Text style={styles.line}>New activity</Text>;
+      return 'New activity';
   }
 }
 
@@ -97,50 +95,50 @@ export default function Notifications({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="stack"
-        title="What you missed"
-        subtitle="Requests, approvals and ratings. Nothing else."
-        action="Mark all read"
-        onAction={markAllRead}
-        onBack={() => navigation.goBack()}
-      />
-      {loading ? (
-        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
-      ) : items.length === 0 ? (
-        <Text style={[styles.line, { textAlign: 'center', marginTop: 40, color: colors.muted }]}>Nothing yet.</Text>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.body}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.clay} />}
-        >
-          {today.length > 0 && <Text style={styles.sectionLabel}>Today</Text>}
-          {today.map((n) => (
-            <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />
-          ))}
-          {earlier.length > 0 && <Text style={[styles.sectionLabel, { marginTop: 6 }]}>Earlier</Text>}
-          {earlier.map((n) => (
-            <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />
-          ))}
-        </ScrollView>
-      )}
+      <ScrollView contentContainerStyle={{ paddingBottom: 34, flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.ink} />}>
+        <Header
+          variant="stack"
+          title="What you missed"
+          subtitle="Requests, approvals and ratings. Nothing else."
+          action={items.some((n) => !n.read) ? 'Mark read' : null}
+          onAction={markAllRead}
+          onBack={() => navigation.goBack()}
+        />
+        {loading ? (
+          <ListSkeleton />
+        ) : items.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 60 }}>
+            <EmptyState tone="zinc" title="All caught up" body="Requests, approvals and ratings land here the moment they happen." />
+          </View>
+        ) : (
+          <View style={styles.body}>
+            {today.length > 0 && <SectionLabel>Today</SectionLabel>}
+            {today.map((n) => <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />)}
+            {earlier.length > 0 && <View style={{ marginTop: 6 }}><SectionLabel>Earlier</SectionLabel></View>}
+            {earlier.map((n) => <NotificationRow key={n.id} item={n} onPress={() => openNotification(n)} onLetIn={() => letThemIn(n)} />)}
+          </View>
+        )}
+      </ScrollView>
+      <StatusScrim />
     </View>
   );
 }
 
 function NotificationRow({ item, onPress, onLetIn }: { item: ApiNotification; onPress: () => void; onLetIn: () => void }) {
+  const actionable = item.kind === 'JOIN_REQUEST' && !item.read;
+  const dot = actionable ? colors.ink : item.read ? colors.zinc300 : colors.amber;
   return (
-    <Pressable onPress={onPress} style={[styles.row, item.read && { opacity: 0.76 }]}>
-      <View style={[styles.dot, { backgroundColor: item.read ? colors.borderSoft : colors.clay }]} />
+    <Pressable onPress={onPress} style={[styles.row, { backgroundColor: actionable ? colors.amber : colors.zinc100 }, item.read && { opacity: 0.72 }]}>
+      <View style={[styles.dot, { backgroundColor: dot }]} />
       <View style={{ flex: 1 }}>
-        {describe(item)}
-        <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
-        {item.kind === 'JOIN_REQUEST' && (
+        <Text style={styles.line}>{describe(item)}</Text>
+        <Text style={[styles.time, { color: actionable ? colors.amberInk : colors.zinc400 }]}>{timeAgo(item.createdAt)}</Text>
+        {actionable && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <Pressable onPress={onLetIn} style={styles.primaryBtn}>
-              <Text style={styles.primaryLabel}>Let them in</Text>
+            <Pressable onPress={onLetIn} style={styles.letIn}>
+              <Text style={styles.letInLabel}>Let them in</Text>
             </Pressable>
-            <Pressable onPress={onPress} style={styles.viewBtn}>
+            <Pressable onPress={onPress} style={styles.view}>
               <Text style={styles.viewLabel}>View</Text>
             </Pressable>
           </View>
@@ -151,16 +149,15 @@ function NotificationRow({ item, onPress, onLetIn }: { item: ApiNotification; on
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 34, gap: 10 },
-  sectionLabel: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.faint },
-  row: { flexDirection: 'row', gap: 12, backgroundColor: colors.surface, borderRadius: 20, padding: 15, ...shadow.inner },
+  screen: { flex: 1, backgroundColor: colors.white },
+  body: { paddingTop: 6, paddingHorizontal: 20, gap: 9 },
+  row: { flexDirection: 'row', gap: 12, borderRadius: 20, padding: 15 },
   dot: { width: 8, height: 8, minWidth: 8, borderRadius: 999, marginTop: 6 },
-  line: { fontSize: 13.5, lineHeight: 20, color: colors.ink },
-  strong: { fontFamily: 'Figtree_700Bold' },
-  time: { fontFamily: 'Figtree_500Medium', fontSize: 11.5, color: colors.faint, marginTop: 5 },
-  primaryBtn: { flex: 1, minHeight: 40, borderRadius: 999, backgroundColor: colors.clay, alignItems: 'center', justifyContent: 'center' },
-  primaryLabel: { fontFamily: 'Figtree_700Bold', fontSize: 12.5, color: '#fff' },
-  viewBtn: { minHeight: 40, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  viewLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.inkSecondary },
+  line: { fontFamily: font.regular, fontSize: 13.5, lineHeight: 20, color: colors.ink },
+  strong: { fontFamily: font.bold },
+  time: { fontFamily: font.bold, fontSize: 11.5, marginTop: 5 },
+  letIn: { flex: 1, minHeight: 42, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  letInLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.amber },
+  view: { minHeight: 42, paddingHorizontal: 16, borderRadius: 999, backgroundColor: 'rgba(255,255,255,.6)', alignItems: 'center', justifyContent: 'center' },
+  viewLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
 });

@@ -1,6 +1,7 @@
 import type { ApiEvent, ApiUser } from '../api/types';
 import { fromApiCostMode, fromApiGenderRestriction } from '../api/types';
 import type { Gender } from './gender';
+import { seatTones } from '../theme';
 
 export type GoingPerson = { bg: string; fg: string; label: string; name: string; gender: Gender; photo?: string };
 
@@ -13,11 +14,7 @@ function firstNameOf(name: string | null): string {
   return (name ?? 'The host').split(' ')[0];
 }
 
-const AVATAR_TONES: { bg: string; fg: string }[] = [
-  { bg: '#F6E4DA', fg: '#A6512F' },
-  { bg: '#E8EDE3', fg: '#4F5C46' },
-  { bg: '#EFE6DC', fg: '#5C534B' },
-];
+const AVATAR_TONES = seatTones.map(([bg, fg]) => ({ bg, fg }));
 
 function toGender(g: string | null): Gender {
   return g === 'Woman' || g === 'Man' ? g : 'Nonbinary';
@@ -50,6 +47,9 @@ export type EventCard = {
   title: string;
   slot: string;
   time: string;
+  dateLabel: string;
+  whereWhen: string;
+  seatsLeft: number;
   venue: string | null;
   venueLine: string;
   host: string;
@@ -86,6 +86,9 @@ export function toEventCard(event: ApiEvent): EventCard {
     title: event.title,
     slot: `${(event.venue ?? event.title).toUpperCase()}`,
     time,
+    dateLabel,
+    whereWhen: `${event.venue ?? 'Anywhere'} · ${dateLabel}${event.time ? ` ${time}` : ''}`,
+    seatsLeft,
     venue: event.venue,
     venueLine: event.venue ?? 'Flexible',
     host: event.host.name ?? 'Host',

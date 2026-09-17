@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
-import { colors, scale, shadow } from '../theme';
-import { Header } from '../components/widgets';
+import { colors, font, seatTones, text } from '../theme';
+import { Avatar, FieldLabel, FilterChips, Header, TextField, StatusScrim } from '../components/widgets';
 import { VIBE_TAGS } from '../data';
+import { initialsOf } from '../data/eventDisplay';
 import { useAppDispatch, useAppState } from '../store';
 import { usersApi } from '../api';
 import { uploadMedia } from '../firebase';
@@ -17,17 +18,12 @@ export default function EditProfile({ navigation }: Props) {
   const dispatch = useAppDispatch();
   const [name, setName] = useState(state.name);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const initials = name.trim() ? name.trim().slice(0, 2).toUpperCase() : 'YO';
+  const [addingTags, setAddingTags] = useState(false);
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (result.canceled) return;
     const uri = result.assets[0].uri;
     dispatch({ type: 'SET_PROFILE_PHOTO', uri });
@@ -50,88 +46,113 @@ export default function EditProfile({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="stack"
-        title="Edit profile"
-        subtitle="Your rating and plan count can't be edited — they're earned."
-        action="Save"
-        onAction={save}
-        onBack={() => navigation.goBack()}
-      />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Pressable onPress={pickPhoto} disabled={uploadingPhoto} style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          <View style={styles.avatar}>
-            {state.profilePhoto ? (
-              <Image source={{ uri: state.profilePhoto }} style={styles.avatarImage} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <Header
+          variant="stack"
+          title="Edit profile"
+          subtitle="Your rating and meetups can't be edited — they're earned."
+          action="Save"
+          actionTone="amber"
+          onAction={save}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.body}>
+          <Pressable onPress={pickPhoto} disabled={uploadingPhoto} style={styles.photoRow}>
+            <View>
+              <Avatar initials={initialsOf(name || null)} photo={state.profilePhoto} size={74} rounded={22} tone="amber" />
+              <View style={styles.pencil}><Text style={styles.pencilGlyph}>✎</Text></View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.photoTitle}>Main photo</Text>
+              <Text style={styles.photoSub}>{uploadingPhoto ? 'Uploading…' : 'Shown on your profile, never on the board.'}</Text>
+            </View>
+          </Pressable>
+
+          <View>
+            <FieldLabel>Display name</FieldLabel>
+            <TextField value={name} onChangeText={setName} placeholder="Your name" style={{ fontSize: 15 }} />
+          </View>
+
+          <View>
+            <FieldLabel>Up for — up to three</FieldLabel>
+            {addingTags ? (
+              <FilterChips
+                multi
+                activeTone="amber"
+                items={VIBE_TAGS}
+                active={VIBE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+                onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: VIBE_TAGS[i] })}
+              />
             ) : (
-              <Text style={styles.avatarLabel}>{initials}</Text>
+              <View style={styles.tags}>
+                {state.vibeTags.map((t) => (
+                  <Pressable key={t} onPress={() => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: t })} style={styles.tagOn}>
+                    <Text style={styles.tagOnLabel}>{t}</Text>
+                    <Text style={[styles.tagOnLabel, { opacity: 0.7 }]}>×</Text>
+                  </Pressable>
+                ))}
+                {state.vibeTags.length < 3 && (
+                  <Pressable onPress={() => setAddingTags(true)} style={styles.tagAdd}>
+                    <Text style={styles.tagAddLabel}>+ Add</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {addingTags && (
+              <Pressable onPress={() => setAddingTags(false)} style={{ marginTop: 10 }}>
+                <Text style={styles.done}>Done</Text>
+              </Pressable>
             )}
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={scale.inline}>Main photo</Text>
-            <Text style={[scale.meta, { marginTop: 3, lineHeight: 18 }]}>
-              {uploadingPhoto ? 'Uploading…' : 'Shown on your profile, never on the board. Tap to change.'}
-            </Text>
-          </View>
-        </Pressable>
 
-        <View>
-          <Text style={styles.label}>Display name</Text>
-          <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Your name" placeholderTextColor={colors.faint} />
-        </View>
-
-        <View>
-          <Text style={styles.label}>Up for — up to three</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {state.vibeTags.map((t) => (
-              <Pressable key={t} onPress={() => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: t })} style={styles.tagOn}>
-                <Text style={styles.tagOnLabel}>{t} <Text style={{ opacity: 0.6 }}>×</Text></Text>
-              </Pressable>
-            ))}
-            {state.vibeTags.length < 3 && VIBE_TAGS.filter((t) => !state.vibeTags.includes(t)).slice(0, 1).map((t) => (
-              <Pressable key={t} onPress={() => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: t })} style={styles.tagAdd}>
-                <Text style={styles.tagAddLabel}>+ Add {t}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {state.highlights.length > 0 && (
           <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Text style={styles.label}>Highlights</Text>
+            <View style={styles.hlHead}>
+              <Text style={text.fieldLabel}>Highlights</Text>
               <Text style={styles.count}>{state.highlights.length} of 6</Text>
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {state.highlights.map((_h, i) => (
-                <View key={i} style={styles.highlightTile}>
-                  <Pressable onPress={() => dispatch({ type: 'REMOVE_HIGHLIGHT', index: i })} style={styles.removeBadge}>
-                    <Text style={styles.removeLabel}>×</Text>
+            <View style={styles.grid}>
+              {state.highlights.map((h, i) => (
+                <View key={i} style={[styles.tile, { backgroundColor: [colors.amber, seatTones[0][0], seatTones[2][0]][i % 3] }]}>
+                  {h.type === 'image' && <Image source={{ uri: h.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+                  <Pressable hitSlop={6} onPress={() => dispatch({ type: 'REMOVE_HIGHLIGHT', index: i })} style={styles.remove}>
+                    <Text style={styles.removeGlyph}>×</Text>
                   </Pressable>
                 </View>
               ))}
+              {state.highlights.length < 6 && (
+                <Pressable onPress={() => navigation.navigate('Highlights', { mode: 'edit' })} style={[styles.tile, styles.addTile]}>
+                  <Text style={styles.addGlyph}>+</Text>
+                </Pressable>
+              )}
             </View>
           </View>
-        )}
+        </View>
       </ScrollView>
+      <StatusScrim />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40, gap: 16 },
-  avatar: { width: 74, height: 74, borderRadius: 999, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%' },
-  avatarLabel: { fontFamily: 'Figtree_700Bold', fontSize: 24, color: colors.clayPressed },
-  label: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.faint, marginBottom: 8 },
-  input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, minHeight: 52, paddingHorizontal: 16, fontFamily: 'Figtree_600SemiBold', fontSize: 15, color: colors.ink },
-  tagOn: { borderRadius: 999, backgroundColor: colors.ink, minHeight: 44, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
-  tagOnLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.ground },
-  tagAdd: { borderRadius: 999, borderWidth: 1, borderColor: colors.borderSoft, borderStyle: 'dashed', minHeight: 44, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
-  tagAddLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12.5, color: colors.faint },
-  count: { fontFamily: 'Figtree_600SemiBold', fontSize: 11.5, color: colors.muted },
-  highlightTile: { width: '23%', aspectRatio: 3 / 4, borderRadius: 13, backgroundColor: colors.neutralAvatar, ...shadow.inner },
-  removeBadge: { position: 'absolute', right: 4, top: 4, width: 20, height: 20, borderRadius: 999, backgroundColor: 'rgba(46,42,38,.75)', alignItems: 'center', justifyContent: 'center' },
-  removeLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 11 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  body: { paddingTop: 6, paddingHorizontal: 20, gap: 17 },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  pencil: { position: 'absolute', right: -3, bottom: -3, width: 28, height: 28, borderRadius: 999, backgroundColor: colors.ink, borderWidth: 2, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  pencilGlyph: { fontFamily: font.bold, fontSize: 12, color: colors.amber },
+  photoTitle: { fontFamily: font.extrabold, fontSize: 14, color: colors.ink },
+  photoSub: { fontFamily: font.regular, fontSize: 12, lineHeight: 18, color: colors.zinc500, marginTop: 3 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagOn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.ink, borderRadius: 999, minHeight: 44, paddingHorizontal: 15 },
+  tagOnLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.amber },
+  tagAdd: { backgroundColor: colors.zinc100, borderRadius: 999, minHeight: 44, paddingHorizontal: 15, justifyContent: 'center' },
+  tagAddLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.zinc400 },
+  done: { fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
+  hlHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 11 },
+  count: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc500 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tile: { width: '23%', aspectRatio: 3 / 4, borderRadius: 14, overflow: 'hidden' },
+  addTile: { backgroundColor: colors.zinc100, alignItems: 'center', justifyContent: 'center' },
+  addGlyph: { fontFamily: font.bold, fontSize: 18, color: colors.zinc400 },
+  remove: { position: 'absolute', right: 4, top: 4, width: 20, height: 20, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  removeGlyph: { fontFamily: font.bold, fontSize: 11, lineHeight: 13, color: colors.amber },
 });

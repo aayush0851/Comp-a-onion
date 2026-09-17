@@ -1,65 +1,70 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, scale, shadow, Tone } from '../../theme';
+import { colors, font, ToneKey, tones } from '../../theme';
+import { Avatar } from './Avatar';
 import { Stars } from './Stars';
-import { UserChip } from './UserChip';
 
 export function ReviewCard({
-  reviewer, initials, tone = 'sage', reviewerRating, reviewerCount, rating, date, body, tags, plan, reply,
-  showActions, onPress, onPressReviewer, onReply, onReport,
+  plan, date, rating, body, reviewer, initials, photo, tone = 'sky', tags = [], reply, showStars = true, showActions,
+  onWhite, onPress, onPressReviewer, onReply, onReport,
 }: {
+  plan: string;
+  date: string;
+  rating: number;
+  body?: string | null;
   reviewer: string;
   initials: string;
-  tone?: Tone;
-  reviewerRating?: number | null;
-  reviewerCount?: number | null;
-  rating: number;
-  date: string;
-  body: string;
+  photo?: string | null;
+  tone?: ToneKey;
   tags?: string[];
-  plan?: string | null;
   reply?: string | null;
+  showStars?: boolean;
   showActions?: boolean;
+  onWhite?: boolean;
   onPress?: () => void;
   onPressReviewer?: () => void;
   onReply?: () => void;
   onReport?: () => void;
 }) {
+  const bg = onWhite ? colors.white : colors.zinc100;
+  const rule = onWhite ? colors.zinc100 : colors.zinc200;
   return (
-    <Pressable onPress={onPress} style={styles.reviewCard} disabled={!onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+    <Pressable onPress={onPress} disabled={!onPress} style={[styles.card, { backgroundColor: bg }]}>
+      <View style={styles.top}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <UserChip name={reviewer} initials={initials} tone={tone} size="s" rating={reviewerRating} count={reviewerCount} onPress={onPressReviewer} />
+          <Text style={styles.plan} numberOfLines={1}>{plan}</Text>
+          {showStars && <View style={{ marginTop: 7 }}><Stars value={rating} size="s" showValue={false} /></View>}
         </View>
-        <Text style={{ fontFamily: 'Figtree_500Medium', fontSize: 11, color: colors.faint, paddingTop: 4 }}>{date}</Text>
+        <Text style={styles.date}>{date}</Text>
       </View>
-      <View style={{ marginTop: 12 }}><Stars value={rating} size="s" showValue={false} /></View>
-      <Text style={[scale.body, { fontSize: 13.5, marginTop: 10, color: '#453F39' }]}>{body}</Text>
-      {!!tags?.length && (
-        <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap', marginTop: 12 }}>
-          {tags.map((t) => (
-            <View key={t} style={styles.miniTag}><Text style={styles.miniTagLabel}>{t}</Text></View>
-          ))}
-        </View>
-      )}
-      {!!plan && (
-        <View style={styles.reviewPlanRow}>
-          <View style={styles.reviewPlanThumb} />
-          <Text numberOfLines={1} style={{ fontFamily: 'Figtree_600SemiBold', fontSize: 11.5, color: colors.muted, flex: 1 }}>{plan}</Text>
-        </View>
-      )}
+      {!!body && <Text style={styles.body}>“{body}”</Text>}
+      <View style={[styles.footer, { borderTopColor: rule }]}>
+        <Pressable onPress={onPressReviewer} disabled={!onPressReviewer} style={styles.reviewerTap}>
+          <Avatar initials={initials} photo={photo} size={26} colorsOverride={tones[tone]} />
+          <Text style={styles.reviewer} numberOfLines={1}>{reviewer}</Text>
+        </Pressable>
+        {tags.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {tags.slice(0, 2).map((t) => (
+              <View key={t} style={styles.tag}><Text style={styles.tagLabel} numberOfLines={1}>{t}</Text></View>
+            ))}
+          </View>
+        )}
+      </View>
       {!!reply && (
-        <View style={styles.replyBox}>
+        <View style={styles.reply}>
           <Text style={styles.replyLabel}>Your reply</Text>
           <Text style={styles.replyBody}>{reply}</Text>
         </View>
       )}
       {showActions && (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-          <Pressable onPress={onReply} style={styles.actionBtn}>
-            <Text style={styles.actionBtnLabel}>Reply</Text>
-          </Pressable>
-          <Pressable onPress={onReport} style={[styles.actionBtn, { flex: 0, paddingHorizontal: 16 }]}>
-            <Text style={[styles.actionBtnLabel, { color: colors.muted }]}>Report</Text>
+          {!reply && (
+            <Pressable onPress={onReply} style={[styles.action, { flex: 1 }]}>
+              <Text style={styles.actionLabel}>Reply once</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={onReport} style={[styles.action, { paddingHorizontal: 17 }, !!reply && { flex: 1 }]}>
+            <Text style={[styles.actionLabel, { color: colors.zinc500 }]}>Report</Text>
           </Pressable>
         </View>
       )}
@@ -68,14 +73,19 @@ export function ReviewCard({
 }
 
 const styles = StyleSheet.create({
-  reviewCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, ...shadow.inner },
-  miniTag: { backgroundColor: '#F8F2EC', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
-  miniTagLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 10.5, color: colors.inkSecondary },
-  reviewPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },
-  reviewPlanThumb: { width: 22, height: 22, borderRadius: 7, backgroundColor: colors.neutralAvatar },
-  replyBox: { marginTop: 13, backgroundColor: '#F8F5F0', borderRadius: 14, padding: 13 },
-  replyLabel: { fontFamily: 'Figtree_700Bold', fontSize: 10.5, letterSpacing: 0.5, textTransform: 'uppercase', color: colors.clayPressed },
-  replyBody: { fontFamily: 'Newsreader_400Regular_Italic', fontSize: 13.5, lineHeight: 19, color: colors.inkSecondary, marginTop: 5 },
-  actionBtn: { flex: 1, minHeight: 40, borderRadius: 999, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  actionBtnLabel: { fontFamily: 'Figtree_600SemiBold', fontSize: 12, color: colors.inkSecondary },
+  card: { borderRadius: 20, padding: 16 },
+  top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  plan: { fontFamily: font.bold, fontSize: 13.5, letterSpacing: -0.2, color: colors.ink },
+  date: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.zinc400, paddingTop: 2 },
+  body: { fontFamily: font.italic, fontSize: 13.5, lineHeight: 20, color: colors.zinc700, marginTop: 11 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 13, paddingTop: 12, borderTopWidth: 1 },
+  reviewerTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 },
+  reviewer: { flex: 1, fontFamily: font.semibold, fontSize: 12, color: colors.zinc500 },
+  tag: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.zinc200, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  tagLabel: { fontFamily: font.bold, fontSize: 10, color: colors.zinc700 },
+  reply: { marginTop: 12, backgroundColor: colors.white, borderRadius: 14, padding: 13 },
+  replyLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.amberInk },
+  replyBody: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.zinc700, marginTop: 5 },
+  action: { minHeight: 44, borderRadius: 999, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.zinc200, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
 });

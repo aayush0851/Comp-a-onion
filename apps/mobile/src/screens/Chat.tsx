@@ -1,12 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, shadow } from '../theme';
-import { Header } from '../components/widgets';
-import { formatEventTime } from '../data/eventDisplay';
+import { colors, font, seatTones } from '../theme';
+import { Bubble, ChatBody, chatTime, Composer, EmptyState, Header, SystemNote } from '../components/widgets';
+import { formatEventDate, formatEventTime, initialsOf } from '../data/eventDisplay';
 import { useAppState } from '../store';
 import { chatApi, eventsApi } from '../api';
 import { connectSse } from '../realtime';
@@ -45,79 +44,48 @@ export default function Chat({ navigation, route }: Props) {
     setMsgs((prev) => appendUnique(prev, msg));
   };
 
+  const authorIds = [...new Set(msgs.map((m) => m.authorId))];
+  const toneFor = (id: string) => (event && id === event.hostId ? ([colors.amber, colors.ink] as const) : seatTones[authorIds.indexOf(id) % seatTones.length]);
+  const last = msgs[msgs.length - 1];
+  const hostFirst = event?.host.name?.split(' ')[0];
+
   return (
     <View style={styles.screen}>
       <Header
         variant="convo"
         title={event?.title ?? '…'}
-        subtitle={event ? `${event.seatsFilled} going · ${formatEventTime(event.time)}` : ''}
-        action="Plan"
+        subtitle={event ? `${event.seatsFilled} going · ${formatEventTime(event.time)} · ${formatEventDate(event.date)}` : ''}
+        action="Hangout"
         onAction={() => navigation.navigate('Detail', { id: route.params.id })}
         onBack={() => navigation.navigate('ChatList')}
       />
-
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24, gap: 13 }}>
+      <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder="Message the table" />}>
+        {!!event && event.hostId !== state.userId && <SystemNote>Chat opened when {hostFirst ?? 'the host'} let you in</SystemNote>}
         {msgs.length === 0 && (
-          <View style={styles.emptyWrap}>
-            <Feather name="message-circle" size={40} color={colors.faint} />
-            <Text style={styles.emptyNote}>No messages yet — say hi to start the conversation.</Text>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <EmptyState shape="bubble" tone="sky" title="Say hi to the table" body="Nobody's said anything yet. Where to meet is a good first message." />
           </View>
         )}
-        {msgs.map((m) => {
+        {msgs.map((m, i) => {
           const mine = m.authorId === state.userId;
-          const host = event ? m.authorId === event.hostId : false;
+          const showName = !mine && msgs[i - 1]?.authorId !== m.authorId;
           return (
-            <View key={m.id} style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-              {!mine && (
-                <View style={styles.authorRow}>
-                  {host && <View style={styles.hostBadge}><Text style={styles.hostBadgeIcon}>★</Text></View>}
-                  <Text style={styles.author}>{m.author.name ?? 'Someone'}</Text>
-                </View>
-              )}
-              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                <Text style={[styles.bubbleText, { color: mine ? '#fff' : colors.ink }]}>{m.text}</Text>
-              </View>
-            </View>
+            <Bubble
+              key={m.id}
+              showName={showName}
+              m={{ id: m.id, text: m.text, mine, authorName: m.author.name, authorInitials: initialsOf(m.author.name), authorPhoto: m.author.profilePicture, authorTone: toneFor(m.authorId) }}
+            />
           );
         })}
-      </ScrollView>
-
-      <View style={styles.composer}>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Say something"
-          placeholderTextColor={colors.faint}
-          style={styles.input}
-        />
-        <Pressable onPress={send} style={styles.sendBtn}>
-          <Text style={styles.sendLabel}>Send</Text>
-        </Pressable>
-      </View>
+        {!!last && last.authorId === state.userId && (
+          <Text style={[styles.meta, { alignSelf: 'flex-end' }]}>Sent · {chatTime(last.createdAt)}</Text>
+        )}
+      </ChatBody>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  emptyNote: { color: colors.faint, fontFamily: 'Figtree_400Regular', fontSize: 13, textAlign: 'center' },
-  authorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3, marginHorizontal: 4 },
-  hostBadge: {
-    width: 14, height: 14, borderRadius: 7, backgroundColor: colors.clay,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  hostBadgeIcon: { color: '#fff', fontSize: 8, textAlign: 'center', includeFontPadding: false },
-  author: { color: colors.faint, fontFamily: 'Figtree_600SemiBold', fontSize: 10.5 },
-  bubble: { maxWidth: '80%', paddingVertical: 12, paddingHorizontal: 14, ...shadow.chip },
-  bubbleMine: { backgroundColor: colors.clay, borderRadius: 20, borderBottomRightRadius: 6 },
-  bubbleOther: { backgroundColor: colors.surface, borderRadius: 20, borderBottomLeftRadius: 6 },
-  bubbleText: { fontFamily: 'Figtree_400Regular', fontSize: 13.5, lineHeight: 19 },
-  composer: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 24, alignItems: 'center' },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999,
-    paddingVertical: 14, paddingHorizontal: 16, fontFamily: 'Figtree_400Regular', fontSize: 14, color: colors.ink,
-  },
-  sendBtn: { backgroundColor: colors.clay, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 20 },
-  sendLabel: { color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: 14 },
+  screen: { flex: 1, backgroundColor: colors.zinc100 },
+  meta: { fontFamily: font.semibold, fontSize: 10.5, color: colors.zinc400 },
 });

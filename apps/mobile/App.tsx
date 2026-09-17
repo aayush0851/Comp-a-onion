@@ -3,15 +3,17 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   useFonts,
-  Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold, Figtree_800ExtraBold,
-} from '@expo-google-fonts/figtree';
-import { Newsreader_300Light_Italic, Newsreader_400Regular_Italic } from '@expo-google-fonts/newsreader';
+  PlusJakartaSans_400Regular, PlusJakartaSans_400Regular_Italic, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { JetBrainsMono_400Regular, JetBrainsMono_600SemiBold } from '@expo-google-fonts/jetbrains-mono';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from './src/navigation';
 import { AppProvider, useAppState } from './src/store';
 import { colors } from './src/theme';
+import { LoadingScreen } from './src/components/widgets';
 import Signup from './src/screens/Signup';
 import Auth from './src/screens/Auth';
 import Name from './src/screens/Name';
@@ -37,6 +39,7 @@ import Chat from './src/screens/Chat';
 import Profile from './src/screens/Profile';
 import EditProfile from './src/screens/EditProfile';
 import Settings from './src/screens/Settings';
+import Safety from './src/screens/Safety';
 import Review from './src/screens/Review';
 import Filed from './src/screens/Filed';
 import SearchFilters from './src/screens/SearchFilters';
@@ -49,7 +52,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function RootNavigator() {
   const state = useAppState();
 
-  if (!state.authReady) return <View style={{ flex: 1, backgroundColor: colors.ground }} />;
+  if (!state.authReady) return <LoadingScreen />;
 
   const initialRouteName = !state.isAuthenticated ? 'Signup' : state.onboarded ? 'Board' : 'Name';
 
@@ -87,6 +90,7 @@ function RootNavigator() {
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen name="Settings" component={Settings} />
+            <Stack.Screen name="Safety" component={Safety} />
             <Stack.Screen name="Review" component={Review} />
             <Stack.Screen name="Filed" component={Filed} />
             <Stack.Screen name="SearchFilters" component={SearchFilters} />
@@ -102,11 +106,12 @@ function RootNavigator() {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold, Figtree_800ExtraBold,
-    Newsreader_300Light_Italic, Newsreader_400Regular_Italic,
+    PlusJakartaSans_400Regular, PlusJakartaSans_400Regular_Italic, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
+    JetBrainsMono_400Regular, JetBrainsMono_600SemiBold,
   });
 
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#FBF6F0' }} />;
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.white }} />;
 
   return (
     <SafeAreaProvider>

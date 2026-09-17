@@ -1,3 +1,5 @@
+import { colors } from '../theme';
+
 export type GenderRestriction = 'anyone' | 'women' | 'men';
 export type CostMode = 'host' | 'dutch';
 
@@ -30,13 +32,13 @@ export function genderIconSymbol(g: Gender): string {
 }
 
 export const GENDER_COLORS: Record<Gender, { bg: string; fg: string }> = {
-  Woman: { bg: '#F9E1EA', fg: '#B23A6B' },
-  Man: { bg: '#E1EAF9', fg: '#2F5FA6' },
-  Nonbinary: { bg: '#EDE1F9', fg: '#6B3AA6' },
+  Woman: { bg: colors.amberSoft, fg: colors.amberInk },
+  Man: { bg: colors.sky, fg: colors.skyInk },
+  Nonbinary: { bg: colors.mint, fg: colors.mintInk },
 };
 
 export function genderRestrictionColors(g: GenderRestriction): { bg: string; fg: string } {
   if (g === 'women') return GENDER_COLORS.Woman;
   if (g === 'men') return GENDER_COLORS.Man;
-  return { bg: '#E8EDE3', fg: '#4F5C46' };
+  return { bg: colors.zinc100, fg: colors.zinc700 };
 }

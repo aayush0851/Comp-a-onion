@@ -1,20 +1,22 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow } from '../theme';
-import { Header, Stars } from '../components/widgets';
+import { colors, font, seatTones, text } from '../theme';
+import { Avatar, BackButton, Badge, Btn, EmptyState, Footer, Header, ListSkeleton, ratingText, StatTiles, StatusScrim } from '../components/widgets';
 import { initialsOf } from '../data/eventDisplay';
+import { useAppState } from '../store';
 import { usersApi } from '../api';
 import type { ApiUser } from '../api/types';
-
-const TILE_TONES = [colors.blush, colors.sageBg, '#F4EEE7'];
+import { memberSince } from './Profile';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterProfile'>;
 
 export default function RequesterProfile({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
+  const state = useAppState();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -30,96 +32,103 @@ export default function RequesterProfile({ navigation, route }: Props) {
     }, [route.params.userId]),
   );
 
-  if (loading) {
+  if (loading || error || !user) {
     return (
       <View style={styles.screen}>
-        <Header variant="stack" title="Profile" onBack={() => navigation.goBack()} />
-        <ActivityIndicator color={colors.clay} style={{ marginTop: 40 }} />
-      </View>
-    );
-  }
-
-  if (error || !user) {
-    return (
-      <View style={styles.screen}>
-        <Header variant="stack" title="Not found" onBack={() => navigation.goBack()} />
+        <Header variant="stack" title={loading ? undefined : 'Not found'} onBack={() => navigation.goBack()} />
+        {loading ? <ListSkeleton /> : <EmptyState tone="zinc" title="This profile isn't available" body="They may have deleted their account." />}
       </View>
     );
   }
 
   const name = user.name ?? 'Someone';
-  const highlightCount = Math.min(6, user.highlights.length);
+  const isMe = user.id === state.userId;
+  const since = memberSince(user.createdAt);
+  const highlights = user.highlights.slice(0, 6);
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="stack"
-        title={name}
-        subtitle={user.aggregatedRating ? `★ ${user.aggregatedRating.toFixed(1)}` : 'No ratings yet'}
-        onBack={() => navigation.goBack()}
-      />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 34, gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 4 }}>
-          <View style={[styles.avatar, { backgroundColor: TILE_TONES[0] }]}>
-            <Text style={styles.avatarLabel}>{initialsOf(user.name)}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{name}</Text>
-            {!!user.aggregatedRating && (
-              <View style={{ marginTop: 7 }}><Stars value={user.aggregatedRating} size="m" /></View>
-            )}
-          </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        <View style={[styles.topRow, { paddingTop: insets.top + 2 }]}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.id}>ID # {user.id.slice(-4).toUpperCase()}</Text>
+        </View>
+
+        <View style={styles.identity}>
+          <Avatar initials={initialsOf(user.name)} photo={user.profilePicture} size={80} rounded={24} tone="amber" />
+          <Text style={styles.name}>{name}</Text>
+          <Text style={[text.eyebrow, { fontSize: 10, marginTop: 6 }]}>#Checked member{since ? ` · since ${since}` : ''}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <StatTiles
+            highlight={2}
+            tiles={[
+              { value: user.aggregatedRating ? `★ ${ratingText(user.aggregatedRating)}` : '—', label: 'Rating' },
+              { value: String(user.highlights.length), label: 'Highlights' },
+              { value: String(user.vibeTags.length), label: 'Up for' },
+            ]}
+          />
         </View>
 
         {user.vibeTags.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Up for</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Up for</Text>
+            <View style={styles.tags}>
               {user.vibeTags.map((t) => (
-                <View key={t} style={styles.wordPill}><Text style={styles.wordLabel}>{t}</Text></View>
+                <View key={t} style={styles.tag}><Text style={styles.tagLabel}>{t}</Text></View>
               ))}
             </View>
           </View>
         )}
 
-        <Text style={styles.highlightsLabel}>Peek into their personality</Text>
-        {highlightCount > 0 ? (
-          <View style={styles.highlightsGrid}>
-            {user.highlights.slice(0, highlightCount).map((uri, i) => (
-              <View key={i} style={[styles.highlightTile, { backgroundColor: TILE_TONES[i % TILE_TONES.length] }]}>
-                <Image source={{ uri }} style={styles.highlightImage} resizeMode="cover" />
-              </View>
-            ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>A peek into their personality</Text>
+          {highlights.length > 0 ? (
+            <View style={styles.grid}>
+              {highlights.map((uri, i) => (
+                <View key={i} style={[styles.tile, { backgroundColor: seatTones[i % seatTones.length][0] }]}>
+                  <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyBox}><Text style={styles.emptyText}>No highlights yet.</Text></View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Checked Badges</Text>
+          <View style={styles.tags}>
+            <Badge label="Verified Identity" tone="sky" />
+            {user.aggregatedRating >= 4.5 && <Badge label="Highly rated" tone="amber" glyph="★" />}
           </View>
-        ) : (
-          <View style={styles.empty}>
-            <Feather name="image" size={38} color={colors.faint} />
-            <Text style={[styles.emptyText, { marginTop: 10 }]}>No highlights yet.</Text>
-          </View>
-        )}
+        </View>
       </ScrollView>
+      <StatusScrim />
+
+      {!isMe && (
+        <Footer>
+          <Btn label={`Say hi to ${name.split(' ')[0]}`} glyph="✓" variant="amber" onPress={() => navigation.navigate('RequesterChat', { requesterId: user.id, name })} />
+        </Footer>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  avatar: { width: 68, height: 68, minWidth: 68, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  avatarLabel: { color: colors.clayPressed, fontFamily: 'Figtree_700Bold', fontSize: 22 },
-  name: { color: colors.ink, fontFamily: 'Figtree_700Bold', fontSize: 19, letterSpacing: -0.4 },
-  highlightsLabel: { fontFamily: 'Newsreader_400Regular_Italic', fontSize: 15, color: colors.muted, paddingHorizontal: 4 },
-  highlightsGrid: { flexDirection: 'row', gap: 10 },
-  highlightTile: { flex: 1, aspectRatio: 3 / 4, borderRadius: radius.tile, overflow: 'hidden' },
-  highlightImage: { width: '100%', height: '100%' },
-  card: { backgroundColor: colors.surface, borderRadius: radius.inner, padding: 17, ...shadow.card },
-  sectionLabel: {
-    fontFamily: 'Figtree_600SemiBold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase',
-    color: colors.faint, marginBottom: 8,
-  },
-  wordPill: {
-    backgroundColor: colors.blush, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14,
-  },
-  wordLabel: { color: colors.blushInk, fontFamily: 'Figtree_600SemiBold', fontSize: 12.5 },
-  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36 },
-  emptyText: { color: colors.muted, fontFamily: 'Figtree_400Regular', fontSize: 13.5 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44, paddingHorizontal: 20 },
+  id: { fontFamily: font.monoSemibold, fontSize: 11, color: colors.zinc400 },
+  identity: { alignItems: 'center', paddingTop: 12, paddingHorizontal: 20 },
+  name: { fontFamily: font.extrabold, fontSize: 24, letterSpacing: -0.9, color: colors.ink, marginTop: 14, textAlign: 'center' },
+  section: { paddingTop: 18, paddingHorizontal: 20 },
+  sectionTitle: { fontFamily: font.extrabold, fontSize: 14.5, letterSpacing: -0.3, color: colors.ink, marginBottom: 12 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  tag: { backgroundColor: colors.zinc100, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  tagLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc700 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tile: { width: '31%', aspectRatio: 3 / 4, borderRadius: 16, overflow: 'hidden' },
+  emptyBox: { backgroundColor: colors.zinc100, borderRadius: 20, padding: 18, alignItems: 'center' },
+  emptyText: { fontFamily: font.semibold, fontSize: 13, color: colors.zinc500 },
 });

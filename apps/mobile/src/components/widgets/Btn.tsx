@@ -1,40 +1,58 @@
-import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
-import { colors, radius, shadow } from '../../theme';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { colors, font } from '../../theme';
 
-export type BtnVariant = 'primary' | 'secondary' | 'dark' | 'ghost' | 'danger' | 'disabled';
+export type BtnVariant = 'primary' | 'amber' | 'secondary' | 'outlined' | 'ghost' | 'danger' | 'disabled';
 
-const BTN_VARIANTS: Record<BtnVariant, { bg: string; fg: string; bd: string; shadow?: object }> = {
-  primary: { bg: colors.clay, fg: '#FFFFFF', bd: colors.clay, shadow: { shadowColor: colors.clay, shadowOpacity: 0.22, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 } },
-  secondary: { bg: colors.surface, fg: colors.ink, bd: colors.border, shadow: shadow.inner },
-  dark: { bg: colors.ink, fg: colors.ground, bd: colors.ink, shadow: { shadowColor: colors.ink, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 } },
-  ghost: { bg: 'transparent', fg: colors.inkSecondary, bd: 'transparent' },
-  danger: { bg: colors.surface, fg: colors.clayPressed, bd: '#E8C9B8' },
-  disabled: { bg: colors.borderSoft, fg: colors.faint, bd: colors.borderSoft },
+const VARIANTS: Record<BtnVariant, { bg: string; fg: string; bd: string; pressed: string }> = {
+  primary: { bg: colors.ink, fg: colors.white, bd: colors.ink, pressed: colors.zinc800 },
+  amber: { bg: colors.amber, fg: colors.ink, bd: colors.amber, pressed: colors.amberPressed },
+  secondary: { bg: colors.zinc100, fg: colors.ink, bd: colors.zinc100, pressed: colors.zinc200 },
+  outlined: { bg: colors.white, fg: colors.ink, bd: colors.zinc200, pressed: colors.zinc100 },
+  ghost: { bg: 'transparent', fg: colors.zinc500, bd: 'transparent', pressed: colors.zinc100 },
+  danger: { bg: colors.white, fg: colors.roseInk, bd: colors.rose, pressed: colors.zinc50 },
+  disabled: { bg: colors.zinc100, fg: colors.zinc400, bd: colors.zinc100, pressed: colors.zinc100 },
 };
 
 export function Btn({
-  label, variant = 'primary', onPress, full = true, style,
-}: { label: string; variant?: BtnVariant; onPress?: () => void; full?: boolean; style?: StyleProp<ViewStyle> }) {
-  const v = BTN_VARIANTS[variant];
-  const disabled = variant === 'disabled';
+  label, variant = 'primary', glyph, onPress, full = true, loading, small, style,
+}: {
+  label: string;
+  variant?: BtnVariant;
+  glyph?: string;
+  onPress?: () => void;
+  full?: boolean;
+  loading?: boolean;
+  small?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const v = VARIANTS[variant];
+  const inert = variant === 'disabled' || loading;
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
-      style={[
+      onPress={inert ? undefined : onPress}
+      style={({ pressed }) => [
         styles.btn,
-        { backgroundColor: v.bg, borderColor: v.bd, width: full ? '100%' : undefined },
-        v.shadow,
+        small && styles.small,
+        { backgroundColor: pressed && !inert ? v.pressed : v.bg, borderColor: pressed && !inert && variant !== 'outlined' && variant !== 'danger' ? v.pressed : v.bd },
+        full ? { alignSelf: 'stretch' } : { alignSelf: 'flex-start' },
         style,
       ]}
     >
-      <Text style={[styles.btnLabel, { color: v.fg }]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator color={v.fg} />
+      ) : (
+        <>
+          <Text style={[styles.label, small && styles.smallLabel, { color: v.fg }]}>{label}</Text>
+          {!!glyph && <Text style={[styles.label, small && styles.smallLabel, { color: v.fg }]}>{glyph}</Text>}
+        </>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  btn: {
-    minHeight: 52, borderRadius: radius.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22,
-  },
-  btnLabel: { fontFamily: 'Figtree_700Bold', fontSize: 15, letterSpacing: -0.1 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 54, paddingHorizontal: 22, borderRadius: 999, borderWidth: 1.5 },
+  small: { minHeight: 44, paddingHorizontal: 17 },
+  label: { fontFamily: font.bold, fontSize: 15, letterSpacing: -0.1 },
+  smallLabel: { fontSize: 12.5 },
 });

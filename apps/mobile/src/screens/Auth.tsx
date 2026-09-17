@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { AntDesign } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { colors, radius, shadow } from '../theme';
-import { Header } from '../components/widgets';
+import { colors, font } from '../theme';
+import { Footer, Header, Notice } from '../components/widgets';
 import { ONBOARDING_STEPS } from '../data';
 import { useAppDispatch } from '../store';
 import { GOOGLE_WEB_CLIENT_ID } from '../config';
@@ -31,7 +29,6 @@ function parseHashParams(url: string): Record<string, string> {
 }
 
 export default function Auth({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -111,44 +108,61 @@ export default function Auth({ navigation }: Props) {
     <View style={styles.screen}>
       <Header
         variant="stack"
+        centerLabel={`Step 1 of ${ONBOARDING_STEPS}`}
         stepsTotal={ONBOARDING_STEPS}
         stepsCurrent={1}
-        title="Sign in to get started."
-        subtitle="One tap with Google or Apple. Nobody sees this but you — not even people you meet."
+        title="How do you want to sign in?"
+        subtitle="A connected account verifies you instantly — no code to wait for."
         onBack={() => navigation.navigate('Signup')}
       />
       <View style={styles.body}>
-        {busy && <ActivityIndicator color={colors.clay} style={{ marginBottom: 16 }} />}
-        {!!error && <Text style={styles.error}>{error}</Text>}
-
-        <Pressable disabled={busy} onPress={continueWithGoogle} style={styles.googleBtn}>
-          <AntDesign name="google" size={18} color={colors.ink} />
-          <Text style={styles.googleLabel}>Continue with Google</Text>
-        </Pressable>
-
         {appleAvailable && (
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={radius.tile}
-            style={styles.appleBtn}
-            onPress={continueWithApple}
-          />
+          <ProviderRow letter="A" label="Continue with Apple" dark disabled={busy} onPress={continueWithApple} />
         )}
+        <ProviderRow letter="G" label="Continue with Google" disabled={busy} onPress={continueWithGoogle} />
+        {busy && <ActivityIndicator color={colors.ink} style={{ marginTop: 6 }} />}
+        {!!error && <Text style={styles.error}>{error}</Text>}
+        <Notice
+          tone="sky"
+          title="Either way"
+          style={{ marginTop: 8 }}
+          items={[
+            'You still show up as a first name and an initial.',
+            'The face check still applies — SSO replaces the code, not the check.',
+            'We never post anything, anywhere.',
+          ]}
+        />
       </View>
+      <View style={{ flex: 1 }} />
+      <Footer>
+        <Text style={styles.caption}>Signing in means you accept the ground rules. Leaving early is always fine.</Text>
+      </Footer>
     </View>
   );
 }
 
+function ProviderRow({ letter, label, dark, disabled, onPress }: { letter: string; label: string; dark?: boolean; disabled?: boolean; onPress: () => void }) {
+  return (
+    <Pressable disabled={disabled} onPress={onPress} style={[styles.provider, dark ? styles.providerDark : styles.providerLight]}>
+      <View style={[styles.providerMark, { backgroundColor: dark ? colors.white : colors.zinc100 }]}>
+        <Text style={[styles.providerLetter, { color: dark ? colors.ink : colors.zinc700 }]}>{letter}</Text>
+      </View>
+      <Text style={[styles.providerLabel, { color: dark ? colors.white : colors.ink }]}>{label}</Text>
+      <Text style={[styles.providerChevron, { color: dark ? '#52525B' : colors.zinc300 }]}>›</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ground },
-  body: { paddingHorizontal: 20, paddingTop: 24, gap: 12 },
-  error: { color: colors.clayPressed, fontFamily: 'Figtree_600SemiBold', fontSize: 13, marginBottom: 8, textAlign: 'center' },
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    minHeight: 56, borderRadius: radius.tile, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.surface, ...shadow.inner,
-  },
-  googleLabel: { fontFamily: 'Figtree_700Bold', fontSize: 15, color: colors.ink },
-  appleBtn: { minHeight: 56 },
+  screen: { flex: 1, backgroundColor: colors.white },
+  body: { paddingTop: 6, paddingHorizontal: 20, gap: 9 },
+  provider: { flexDirection: 'row', alignItems: 'center', gap: 13, borderRadius: 16, minHeight: 58, paddingHorizontal: 18 },
+  providerDark: { backgroundColor: colors.ink },
+  providerLight: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.zinc200 },
+  providerMark: { width: 24, height: 24, minWidth: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  providerLetter: { fontFamily: font.extrabold, fontSize: 12 },
+  providerLabel: { flex: 1, fontFamily: font.bold, fontSize: 15 },
+  providerChevron: { fontFamily: font.bold, fontSize: 15 },
+  error: { fontFamily: font.semibold, fontSize: 13, color: colors.roseInk, textAlign: 'center' },
+  caption: { fontFamily: font.regular, fontSize: 12, lineHeight: 18, color: colors.zinc400, textAlign: 'center' },
 });
