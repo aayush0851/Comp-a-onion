@@ -1,5 +1,7 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { GenderRestriction } from '@prisma/client';
+import { IsBoolean, IsEnum, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { CommaList } from './comma-list.js';
 
 export class BoardQueryDto {
   // 0 = Tonight, 1 = Tomorrow, 2 = This week — matches mobile's FILTER_LABELS.
@@ -20,15 +22,17 @@ export class BoardQueryDto {
   @IsIn([0, 1, 2])
   groupSize?: 0 | 1 | 2;
 
+  // Comma-separated gender restrictions to show, e.g. "WOMEN" or "MEN,ANYONE".
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  womenOnly?: boolean;
+  @CommaList((v) => v.toUpperCase())
+  @IsEnum(GenderRestriction, { each: true })
+  gender?: GenderRestriction[];
 
   // Comma-separated plan types, e.g. "Coffee,Movie".
   @IsOptional()
-  @IsString()
-  types?: string;
+  @CommaList()
+  @IsString({ each: true })
+  types?: string[];
 
   @IsOptional()
   @IsString()

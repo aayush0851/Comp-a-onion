@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones, ToneKey } from '../theme';
+import { useAppDispatch } from '../store';
 import { BackButton, Btn, CheckDot, EmptyState, Footer, Header, ListRow, ListSkeleton, Notice, SectionLabel, Sheet, UserChip, StatusScrim } from '../components/widgets';
 import { costModeLabel, genderRestrictionLabel } from '../data';
 import { MAP_LINK_LABEL, mapLinkOf, openMapLink } from '../data/mapLink';
 import { formatPostDate, formatPostTime, initialsOf } from '../data/postDisplay';
 import { fromApiCostMode, fromApiGenderRestriction } from '../api/types';
-import { postsApi, joinRequestsApi, reviewsApi } from '../api';
+import { postsApi, joinRequestsApi, notificationsApi, reviewsApi } from '../api';
+import { useLivePost } from '../realtime';
 import type { ApiPost, ApiJoinRequest, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlanManage'>;
@@ -19,6 +21,7 @@ const PERSON_TONES: ToneKey[] = ['amber', 'sky', 'mint', 'zinc'];
 
 export default function PlanManage({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
   const [post, setPost] = useState<ApiPost | null>(null);
   const [pending, setPending] = useState<ApiJoinRequest[]>([]);
   const [reviewed, setReviewed] = useState(false);
@@ -35,9 +38,14 @@ export default function PlanManage({ navigation, route }: Props) {
       joinRequestsApi.listForHost(route.params.id),
       reviewsApi.hasReviewed(route.params.id),
     ])
-      .then(([e, jrs, mine]) => { setPost(e); setPending(jrs); setReviewed(!!mine); })
+      .then(([e, jrs, mine]) => {
+        setPost(e); setPending(jrs); setReviewed(!!mine);
+        // Opening the hangout acknowledges the requests that were waiting on it.
+        notificationsApi.markPostNotificationsRead(route.params.id, ['JOIN_REQUEST']).catch(() => {});
+        dispatch({ type: 'CLEAR_POST_UPDATE', postId: route.params.id });
+      })
       .catch((e) => { console.error('PlanManage load failed', e); setError(true); });
-  }, [route.params.id]);
+  }, [route.params.id, dispatch]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -45,6 +53,8 @@ export default function PlanManage({ navigation, route }: Props) {
   }, [fetchPlan]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useLivePost(route.params.id, fetchPlan);
+  useFocusEffect(useCallback(() => { notificationsApi.setOpenPost(route.params.id); return () => notificationsApi.setOpenPost(null); }, [route.params.id]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -79,6 +89,7 @@ export default function PlanManage({ navigation, route }: Props) {
   const archive = async () => {
     setConfirmDelete(false);
     await postsApi.archivePost(post.id);
+    dispatch({ type: 'CLEAR_POST_UPDATE', postId: post.id });
     load();
   };
 
@@ -161,7 +172,6 @@ export default function PlanManage({ navigation, route }: Props) {
         <View style={[styles.topRow, { paddingTop: insets.top + 2 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <BackButton onPress={back} onSurface />
-            <View style={styles.queuePill}><Text style={styles.queuePillLabel}>HOST QUEUE</Text></View>
           </View>
           <Text style={styles.filled}>{came} of {post.seatsTotal} filled</Text>
         </View>
@@ -176,7 +186,7 @@ export default function PlanManage({ navigation, route }: Props) {
           <Text style={styles.bigTitle}>{approvalRequired ? "Who's asking to join" : "Who's in"}</Text>
           <Text style={styles.subtitle}>
             {approvalRequired
-              ? waiting.length === 0 ? 'Nobody has asked yet. Requests land here the moment they come in.' : `${waiting.length} Checked ${waiting.length === 1 ? 'person' : 'people'} asked to join your group.`
+              ? waiting.length === 0 ? 'Nobody has asked yet. Requests land here the moment they come in.' : `${waiting.length} ${waiting.length === 1 ? 'person' : 'people'} asked to join your group.`
               : 'Open seats — people take one straight away, no queue.'}
           </Text>
         </View>
@@ -263,7 +273,11 @@ export default function PlanManage({ navigation, route }: Props) {
       </ScrollView>
       <StatusScrim color={colors.zinc100} />
       <Footer style={{ backgroundColor: colors.zinc100 }}>
-        <Btn label={`Open Group Chat (${came}/${post.seatsTotal} filled)`} onPress={() => navigation.navigate('Chat', { id: post.id })} />
+        {post.seatsTotal > 2 ? (
+          <Btn label={`Open Group Chat (${came}/${post.seatsTotal} filled)`} onPress={() => navigation.navigate('Chat', { id: post.id })} />
+        ) : post.going[0] && (
+          <Btn label={`Chat with ${post.going[0].name?.split(' ')[0] ?? 'your guest'}`} onPress={() => message(post.going[0])} />
+        )}
         <View style={{ marginTop: 8 }}>
           <Btn label="Delete this hangout" variant="danger" onPress={() => setConfirmDelete(true)} />
         </View>
@@ -292,8 +306,6 @@ const styles = StyleSheet.create({
   doneFoot: { marginTop: 14, paddingTop: 13, borderTopWidth: 1, borderTopColor: 'rgba(4,120,87,.2)', alignItems: 'flex-end' },
   doneLink: { fontFamily: font.extrabold, fontSize: 12, color: colors.mintInk },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 20, minHeight: 44 },
-  queuePill: { backgroundColor: colors.amber, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
-  queuePillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.ink },
   filled: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc500 },
   mapLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.amberInk, textDecorationLine: 'underline', marginBottom: 9 },
   postLine: { fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400, marginBottom: 9 },

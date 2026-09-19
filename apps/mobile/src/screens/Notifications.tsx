@@ -7,6 +7,7 @@ import { colors, font } from '../theme';
 import { EmptyState, Header, ListSkeleton, SectionLabel, StatusScrim } from '../components/widgets';
 import { notificationsApi, joinRequestsApi } from '../api';
 import { connectSse } from '../realtime';
+import { useAppDispatch } from '../store';
 import type { ApiNotification } from '../api/notifications';
 
 type Props = { navigation: NavigationProp<RootStackParamList> };
@@ -48,6 +49,7 @@ function describe(n: ApiNotification): ReactNode {
 }
 
 export default function Notifications({ navigation }: Props) {
+  const dispatch = useAppDispatch();
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,11 +73,13 @@ export default function Notifications({ navigation }: Props) {
 
   const markAllRead = async () => {
     await notificationsApi.markAllNotificationsRead();
+    dispatch({ type: 'SET_POST_UPDATES', ids: [] });
     load();
   };
 
   const openNotification = async (n: ApiNotification) => {
     if (!n.read) notificationsApi.markNotificationRead(n.id).catch(() => {});
+    if (n.payload.postId && (n.kind === 'JOIN_REQUEST' || n.kind === 'APPROVAL')) dispatch({ type: 'CLEAR_POST_UPDATE', postId: n.payload.postId });
     if (n.kind === 'JOIN_REQUEST' && n.payload.postId) navigation.navigate('PlanManage', { id: n.payload.postId });
     else if (n.kind === 'APPROVAL' && n.payload.postId) {
       if (n.payload.joinRequestId) joinRequestsApi.markRead(n.payload.joinRequestId).catch(() => {});

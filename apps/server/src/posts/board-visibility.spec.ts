@@ -1,3 +1,4 @@
+import { GenderRestriction } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import { isVisibleOnBoard, type PostCreatedPayload, type Viewer } from './board-visibility.js';
 
@@ -34,7 +35,7 @@ describe('isVisibleOnBoard', () => {
     const p = post('ANYONE');
     expect(isVisibleOnBoard(viewer('Man'), p, { groupSize: 0 })).toBe(false);
     expect(isVisibleOnBoard(viewer('Man'), p, { groupSize: 1 })).toBe(true);
-    expect(isVisibleOnBoard(viewer('Woman'), p, { womenOnly: true })).toBe(false);
+    expect(isVisibleOnBoard(viewer('Woman'), p, { gender: [GenderRestriction.WOMEN] })).toBe(false);
     expect(isVisibleOnBoard(viewer('Man'), p, { types: ['Coffee'] })).toBe(false);
     expect(isVisibleOnBoard(viewer('Man'), p, { types: ['Coffee', 'Food'] })).toBe(true);
     expect(isVisibleOnBoard(viewer('Man'), p, { q: 'RAMEN' })).toBe(true);

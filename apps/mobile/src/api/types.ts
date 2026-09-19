@@ -53,7 +53,7 @@ export type ApiPost = {
   seatsFilled: number;
   isFull: boolean;
   isExpired: boolean;
-  going: ApiUser[];
+  going: (ApiUser & { joinedAt: string | null })[];
 };
 
 export type ApiJoinRequest = {

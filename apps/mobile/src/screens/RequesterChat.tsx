@@ -1,14 +1,16 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
-import { Avatar, Bubble, ChatBody, chatTime, Composer, EmptyState, Header, ratingText } from '../components/widgets';
-import { formatPostTime, initialsOf } from '../data/postDisplay';
+import { Bubble, ChatBody, chatTime, Composer, EmptyState, Header, ratingText } from '../components/widgets';
+import { initialsOf, toPostCard } from '../data/postDisplay';
 import { useAppState } from '../store';
-import { chatApi, postsApi, usersApi } from '../api';
+import { ApiError, chatApi, postsApi, usersApi } from '../api';
 import { connectSse } from '../realtime';
+import { useChatThreadRead } from '../hooks/useChatThreadRead';
 import type { ApiChatMessage } from '../api/chat';
 import type { ApiPost, ApiUser } from '../api/types';
 
@@ -25,14 +27,17 @@ export default function RequesterChat({ navigation, route }: Props) {
   const [draft, setDraft] = useState('');
   const [peer, setPeer] = useState<ApiUser | null>(null);
   const [plan, setPlan] = useState<ApiPost | null>(null);
+  const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  useChatThreadRead(planId, requesterId);
 
   useFocusEffect(
     useCallback(() => {
-      chatApi.listDmThread(requesterId).then(setMsgs);
+      chatApi.listDmThread(requesterId, planId).then(setMsgs).finally(() => setLoaded(true));
       usersApi.getPublicProfile(requesterId).then(setPeer).catch(() => {});
-      if (planId) postsApi.getPost(planId).then(setPlan).catch(() => {});
+      postsApi.getPost(planId).then(setPlan).catch(() => {});
       const disconnect = connectSse<ApiChatMessage>(
-        `/users/${requesterId}/dm/stream`,
+        chatApi.dmPath(requesterId, planId, '/stream'),
         (msg) => setMsgs((prev) => appendUnique(prev, msg)),
       );
       return disconnect;
@@ -42,13 +47,19 @@ export default function RequesterChat({ navigation, route }: Props) {
   const send = async () => {
     const t = draft.trim();
     if (!t) return;
-    setDraft('');
-    const msg = await chatApi.sendDm(requesterId, t);
-    setMsgs((prev) => appendUnique(prev, msg));
+    setError('');
+    try {
+      const msg = await chatApi.sendDm(requesterId, t, planId);
+      setDraft('');
+      setMsgs((prev) => appendUnique(prev, msg));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't send that. Try again.");
+    }
   };
 
   const first = name.split(' ')[0];
   const isHost = !!plan && plan.hostId === state.userId;
+  const card = plan && toPostCard(plan);
   const subtitle = [peer?.aggregatedRating ? `★ ${ratingText(peer.aggregatedRating)}` : null, 'tap for profile'].filter(Boolean).join(' · ');
   const last = msgs[msgs.length - 1];
   const openProfile = () => navigation.navigate('RequesterProfile', { userId: requesterId });
@@ -65,28 +76,23 @@ export default function RequesterChat({ navigation, route }: Props) {
         }
         action="Profile"
         onAction={openProfile}
-        onBack={() => (planId ? navigation.navigate('PlanManage', { id: planId }) : navigation.navigate('ChatList'))}
+        onBack={() => navigation.goBack()}
       />
       <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder={`Message ${first}`} />}>
-        {!!plan && (
-          <View style={styles.about}>
-            <Text style={text.fieldLabel}>About this chat</Text>
-            <Pressable
-              onPress={() => navigation.navigate(isHost ? 'PlanManage' : 'Detail', { id: plan.id })}
-              style={styles.aboutRow}
-            >
-              <Avatar initials={initialsOf(plan.title).slice(0, 1)} size={38} rounded={13} tone="amber" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.aboutTitle} numberOfLines={1}>{plan.title}</Text>
-                <Text style={styles.aboutSub} numberOfLines={1}>
-                  {isHost ? `${first} asked to join` : 'You asked to join'} · {formatPostTime(plan.time)}
-                </Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          </View>
+        {!!card && (
+          <Pressable
+            onPress={() => navigation.navigate(isHost ? 'PlanManage' : 'Detail', { id: card.id })}
+            style={styles.about}
+          >
+            <Text style={text.fieldLabel}>Hangout</Text>
+            <Text style={styles.aboutTitle} numberOfLines={1}>{card.title}</Text>
+            <View style={styles.aboutMeta}>
+              <FontAwesome name="calendar-o" size={12} color={colors.zinc500} />
+              <Text style={styles.aboutSub} numberOfLines={1}>{card.whenShort} · {card.seatsFilled} joined</Text>
+            </View>
+          </Pressable>
         )}
-        {msgs.length === 0 && (
+        {loaded && msgs.length === 0 && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <EmptyState shape="bubble" tone="sky" title={`Say hi to ${first}`} body="No messages yet. Keep it short — a hello is plenty." />
           </View>
@@ -100,6 +106,7 @@ export default function RequesterChat({ navigation, route }: Props) {
         {!!last && last.authorId === state.userId && (
           <Text style={styles.meta}>Sent · {chatTime(last.createdAt)}</Text>
         )}
+        {!!error && <Text style={[styles.meta, { color: colors.roseInk }]}>{error}</Text>}
       </ChatBody>
     </View>
   );
@@ -110,9 +117,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: font.bold, fontSize: 16.5, letterSpacing: -0.4, color: colors.ink },
   subtitle: { fontFamily: font.medium, fontSize: 12, color: colors.zinc500, marginTop: 2 },
   about: { backgroundColor: colors.white, borderRadius: 20, padding: 15 },
-  aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 11 },
-  aboutTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
-  aboutSub: { fontFamily: font.regular, fontSize: 11.5, color: colors.zinc500, marginTop: 2 },
-  chevron: { fontFamily: font.bold, fontSize: 16, color: colors.zinc300 },
+  aboutTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink, marginTop: 4 },
+  aboutMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  aboutSub: { fontFamily: font.regular, fontSize: 11.5, color: colors.zinc500 },
   meta: { alignSelf: 'flex-end', fontFamily: font.semibold, fontSize: 10.5, color: colors.zinc400 },
 });

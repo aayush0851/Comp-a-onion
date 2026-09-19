@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { hasPassed } from './post-deadline.js';
 import { isChanged } from '@companion/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { GenderRestriction, type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { from, merge, switchMap } from 'rxjs';
 import { POST_UPDATED, publishPostUpdate, type PostUpdatedPayload } from './post-updates.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -11,7 +11,7 @@ import { PUBLIC_USER_SELECT } from '../users/users.service.js';
 import type { CreatePostDto } from './dto/create-post.dto.js';
 import type { UpdatePostDto } from './dto/update-post.dto.js';
 import type { BoardQueryDto } from './dto/board-query.dto.js';
-import { allowedGenderRestrictions, dateRangeForFilter, isVisibleOnBoard, proximityBounds, toBoardFilters, type PostCreatedPayload } from './board-visibility.js';
+import { allowedGenderRestrictions, dateRangeForFilter, isVisibleOnBoard, proximityBounds, type PostCreatedPayload } from './board-visibility.js';
 
 function timeStringToDate(time: string): Date {
   return new Date(`1970-01-01T${time}:00.000Z`);
@@ -37,7 +37,7 @@ export function shapePost(post: PostWithAttendees) {
     isFull: joinRequests.length >= rest.seatsTotal,
     // The archive job only runs once a day, so past-deadline posts linger until then.
     isExpired: hasPassed(rest.date, rest.time),
-    going: joinRequests.map((jr) => jr.user),
+    going: joinRequests.map((jr) => ({ ...jr.user, joinedAt: jr.approvedAt })),
   };
 }
 
@@ -82,13 +82,13 @@ export class PostsService {
   async findBoard(requesterId: string, query: BoardQueryDto) {
     const requester = await this.prisma.user.findUniqueOrThrow({ where: { id: requesterId } });
 
-    const filters = toBoardFilters(query);
+    const filters = query;
     const allowed = allowedGenderRestrictions(requester.gender);
     const q = filters.q?.trim();
     const where: Prisma.PostWhereInput = {
       isArchived: query.archiveLookup ? undefined : false,
       date: dateRangeForFilter(filters.filter),
-      genderRestriction: { in: filters.womenOnly ? allowed.filter((g) => g === GenderRestriction.WOMEN) : allowed },
+      genderRestriction: { in: filters.gender?.length ? allowed.filter((g) => filters.gender!.includes(g)) : allowed },
       seatsTotal: filters.groupSize === 0 ? { lte: 2 } : filters.groupSize === 1 ? { gt: 2 } : undefined,
       tags: filters.types?.length ? { hasSome: filters.types } : undefined,
       OR: q ? [{ title: { contains: q, mode: 'insensitive' } }, { description: { contains: q, mode: 'insensitive' } }] : undefined,
@@ -103,7 +103,7 @@ export class PostsService {
 
   // Board listeners get a signal only when the new post would show up on their own board.
   streamBoard(userId: string, query: BoardQueryDto) {
-    const filters = toBoardFilters(query);
+    const filters = query;
     return from(this.prisma.user.findUniqueOrThrow({ where: { id: userId } })).pipe(
       switchMap((viewer) =>
         merge(
@@ -119,6 +119,11 @@ export class PostsService {
         ),
       ),
     );
+  }
+
+  // A signal for one open plan screen: anything that changes this post's seats or status means "re-fetch me".
+  streamPost(id: string) {
+    return sseStream<PostUpdatedPayload>(this.posts, POST_UPDATED, (p) => p.id === id, () => ({ type: 'updated' }));
   }
 
   async findOne(id: string) {

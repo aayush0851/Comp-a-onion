@@ -7,7 +7,8 @@ import {
   PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { JetBrainsMono_400Regular, JetBrainsMono_600SemiBold } from '@expo-google-fonts/jetbrains-mono';
-import { View } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { KeyboardAvoidingView, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from './src/navigation';
@@ -59,7 +60,13 @@ function RootNavigator() {
   return (
     <NavigationContainer>
       <StatusBar style="dark" />
-      <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack.Navigator
+        initialRouteName={initialRouteName}
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+        // Edge-to-edge Android no longer resizes the window for the keyboard, so every screen
+        // pads itself up by the keyboard height — keeps footers/composers above it on both platforms.
+        screenLayout={({ children }) => <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">{children}</KeyboardAvoidingView>}
+      >
         {!state.isAuthenticated ? (
           <>
             <Stack.Screen name="Signup" component={Signup} />
@@ -109,6 +116,7 @@ export default function App() {
     PlusJakartaSans_400Regular, PlusJakartaSans_400Regular_Italic, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
     JetBrainsMono_400Regular, JetBrainsMono_600SemiBold,
+    ...FontAwesome.font,
   });
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.white }} />;

@@ -77,6 +77,7 @@ model User {
   hostedPosts     Post[]        @relation("PostHost")
   joinRequests     JoinRequest[]
   chatMessages     ChatMessage[]
+  chatReads        ChatRead[]
   reviewsWritten   Review[]
   personReviews    PersonReview[] @relation("PersonReviewee")
   reviewReports    ReviewReport[]
@@ -107,6 +108,7 @@ model Post {
 
   joinRequests JoinRequest[]
   chatMessages ChatMessage[]
+  chatReads    ChatRead[]
   reviews      Review[]
 
   @@index([date])
@@ -122,6 +124,7 @@ model JoinRequest {
   status     JoinRequestStatus @default(PENDING)
   introText  String?
   lastReadAt DateTime?
+  approvedAt DateTime?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
@@ -141,6 +144,19 @@ model ChatMessage {
 
   @@index([postId, createdAt])
   @@index([dmWithUserId, createdAt])
+}
+
+// When a user last opened a chat thread; messages after it count as unread.
+// peerId is '' for a hangout's group chat (a primary key column can't be null).
+model ChatRead {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  peerId     String   @default("")
+  lastReadAt DateTime @default(now())
+
+  @@id([userId, postId, peerId])
 }
 
 model Review {

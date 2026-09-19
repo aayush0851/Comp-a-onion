@@ -22,6 +22,13 @@ export function memberSince(iso: string | null | undefined): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }
 
+const NEW_MEMBER_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function isNewMember(iso: string | null | undefined): boolean {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return !Number.isNaN(t) && Date.now() - t < NEW_MEMBER_WINDOW_MS;
+}
+
 export default function Profile({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const state = useAppState();
@@ -30,6 +37,7 @@ export default function Profile({ navigation }: Props) {
   const [editingVibe, setEditingVibe] = useState(false);
   const [rating, setRating] = useState(0);
   const [since, setSince] = useState<string | null>(null);
+  const [isNew, setIsNew] = useState(false);
   const [serverPhoto, setServerPhoto] = useState<string | null>(null);
   const [reviewCount, setReviewCount] = useState(0);
   const [hostedCount, setHostedCount] = useState(0);
@@ -39,7 +47,7 @@ export default function Profile({ navigation }: Props) {
   const displayName = state.name.trim() || 'You';
 
   useEffect(() => {
-    usersApi.getMe().then((me) => { setRating(me.aggregatedRating); setSince(memberSince(me.createdAt)); setServerPhoto(me.profilePicture); });
+    usersApi.getMe().then((me) => { setRating(me.aggregatedRating); setSince(memberSince(me.createdAt)); setIsNew(isNewMember(me.createdAt));setServerPhoto(me.profilePicture); });
     reviewsApi.listReceived().then((r) => setReviewCount(r.length));
     joinRequestsApi.listMine().then((jrs) => setJoinedCount(jrs.filter((jr) => jr.status === 'APPROVED').length));
 
@@ -83,7 +91,7 @@ export default function Profile({ navigation }: Props) {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={[styles.topRow, { paddingTop: insets.top + 2 }]}>
-          <Text style={styles.id}>ID # {(state.userId ?? '').slice(-4).toUpperCase() || '····'}</Text>
+          <View />
           <Pressable onPress={() => navigation.navigate('EditProfile')} style={styles.editPill}>
             <Text style={styles.editLabel}>Edit</Text>
           </Pressable>
@@ -96,7 +104,8 @@ export default function Profile({ navigation }: Props) {
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
-            <Text style={[text.eyebrow, { fontSize: 9.5, marginTop: 5 }]}>#Checked member{since ? ` · since ${since}` : ''}</Text>
+            {isNew && <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Badge label="New" tone="mint" /></View>}
+            {!!since && <Text style={[text.eyebrow, { fontSize: 9.5, marginTop: 5 }]}>Member since {since}</Text>}
           </View>
         </View>
 
@@ -203,7 +212,6 @@ export default function Profile({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingHorizontal: 20 },
-  id: { fontFamily: font.monoSemibold, fontSize: 11, color: colors.zinc400 },
   editPill: { backgroundColor: colors.zinc100, borderRadius: 999, paddingHorizontal: 15, minHeight: 42, justifyContent: 'center' },
   editLabel: { fontFamily: font.bold, fontSize: 12, color: colors.ink },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 10, paddingHorizontal: 20 },

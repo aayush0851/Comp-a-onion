@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font } from '../../theme';
+import { useAppState } from '../../store';
 
 export type TabKey = 'explore' | 'plans' | 'chats' | 'me';
 
@@ -48,8 +49,12 @@ const TABS: { key: TabKey; label: string; Icon: (p: { color: string }) => ReactE
   { key: 'me', label: 'Profile', Icon: ProfileIcon },
 ];
 
-export function TabBar({ active, unread = false, onPress }: { active: TabKey; unread?: boolean; onPress?: (key: TabKey) => void }) {
+export function TabBar({ active, onPress }: { active: TabKey; onPress?: (key: TabKey) => void }) {
   const insets = useSafeAreaInsets();
+  const state = useAppState();
+  const plansUpdates = state.postUpdates.length > 0;
+  // No dot on Chats while you're on it — the list itself shows what's unread.
+  const unread = active !== 'chats' && Object.keys(state.chatUnread).length > 0;
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       {TABS.map(({ key, label, Icon }) => {
@@ -58,7 +63,7 @@ export function TabBar({ active, unread = false, onPress }: { active: TabKey; un
           <Pressable key={key} onPress={() => onPress?.(key)} style={styles.item} accessibilityRole="tab" accessibilityState={{ selected: on }}>
             <View style={[styles.iconPill, { backgroundColor: on ? colors.ink : 'transparent' }]}>
               <Icon color={on ? colors.amber : colors.zinc400} />
-              {key === 'chats' && unread && <View style={styles.unread} />}
+              {((key === 'chats' && unread) || (key === 'plans' && plansUpdates)) && <View style={styles.unread} />}
             </View>
             <Text style={[styles.label, { color: on ? colors.ink : colors.zinc400, fontFamily: on ? font.bold : font.medium }]}>{label}</Text>
           </Pressable>

@@ -10,17 +10,12 @@ export const PROXIMITY_FILTER_ENABLED = false;
 export type BoardFilters = {
   filter?: 0 | 1 | 2;
   groupSize?: 0 | 1 | 2;
-  womenOnly?: boolean;
+  gender?: GenderRestriction[];
   types?: string[];
   q?: string;
   // Search radius; only ever comes from the app's filters, never from the stored profile.
   proximityKm?: number;
 };
-
-// Board query params as they arrive; `types` is a comma-separated list.
-export function toBoardFilters(query: Omit<BoardFilters, 'types'> & { types?: string }): BoardFilters {
-  return { ...query, types: query.types?.split(',').filter(Boolean) };
-}
 
 export type Viewer = { gender: string | null; latitude: number | null; longitude: number | null };
 
@@ -92,7 +87,7 @@ export function isVisibleOnBoard(viewer: Viewer, post: PostCreatedPayload, filte
     if (lng < bounds.longitude.gte || lng > bounds.longitude.lte) return false;
   }
 
-  if (filters.womenOnly && post.genderRestriction !== GenderRestriction.WOMEN) return false;
+  if (filters.gender?.length && !filters.gender.includes(post.genderRestriction)) return false;
   // groupSize: 0 = Duo, 1 = Group, 2 = any size (matches mobile's GROUP_SIZE_LABELS).
   if (filters.groupSize === 0 && post.seatsTotal > 2) return false;
   if (filters.groupSize === 1 && post.seatsTotal <= 2) return false;

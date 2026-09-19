@@ -33,6 +33,11 @@ export class PostsController {
     return this.postsService.findHosted(user.userId, query);
   }
 
+  @Sse('posts/:id/stream')
+  streamPost(@Param('id') id: string) {
+    return this.postsService.streamPost(id);
+  }
+
   @Get('posts/:id')
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(id);

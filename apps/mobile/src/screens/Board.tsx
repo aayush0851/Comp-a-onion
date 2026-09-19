@@ -7,7 +7,7 @@ import type { RootStackParamList } from '../navigation';
 import { colors } from '../theme';
 import { EmptyState, FeaturedCard, Notice, FilterChips, HangoutCard, Header, ListSkeleton, OfflineBanner, TabBar, TabKey, StatusScrim } from '../components/widgets';
 import type { CtaTone, FlagTone } from '../components/widgets';
-import { formatProximityKm, PLAN_TYPES } from '../data';
+import { formatProximityKm } from '../data';
 import { PostCard, toPostCard } from '../data/postDisplay';
 import { postsApi, joinRequestsApi } from '../api';
 import { boardQueryString } from '../api/posts';
@@ -24,14 +24,15 @@ type BoardFrame = ({ type: 'updated' } & PostDelta) | { type: 'created' };
 // Up to this many new posts are pulled in automatically; past it, the user pulls down to refresh.
 const MAX_AUTO_REFRESH = 5;
 
-const BOARD_CHIPS = [{ label: '', glyph: <Octicons name="sliders" size={16} color={colors.zinc700} /> }, ...PLAN_TYPES];
+const QUICK_TYPES = ['Walk n talk', 'Food', 'Coffee', 'Drinks'];
+const BOARD_CHIPS = [{ label: '', glyph: <Octicons name="sliders" size={16} color={colors.zinc700} /> }, 'Women only', ...QUICK_TYPES];
 
 function cardState(c: PostCard, userId: string | null, request?: ApiJoinRequest): { cta: string; ctaTone: CtaTone; flag: string; flagTone: FlagTone } {
   const seatsLeft = Math.max(0, c.seatsTotal - c.seatsFilled);
   const seatsFlag = `${seatsLeft} seat${seatsLeft === 1 ? '' : 's'}`;
   if (c.hostId === userId) return { cta: 'Manage', ctaTone: 'ink', flag: 'Hosting', flagTone: 'ink' };
   if (request?.status === 'APPROVED') return { cta: 'Open chat', ctaTone: 'amber', flag: "You're in", flagTone: 'mint' };
-  if (request?.status === 'PENDING') return { cta: 'Requested', ctaTone: 'disabled', flag: 'Asked', flagTone: 'sky' };
+  if (request?.status === 'PENDING') return { cta: 'Requested', ctaTone: 'disabled', flag: 'Requested', flagTone: 'sky' };
   if (request?.status === 'DECLINED') return { cta: 'Not this time', ctaTone: 'disabled', flag: 'Passed', flagTone: 'zinc' };
   if (request?.status === 'EXPIRED') return { cta: 'Expired', ctaTone: 'disabled', flag: 'Expired', flagTone: 'zinc' };
   if (c.isExpired) return { cta: 'Ended', ctaTone: 'disabled', flag: 'Ended', flagTone: 'zinc' };
@@ -53,6 +54,7 @@ export default function Board({ navigation }: Props) {
     if (!state.onboarded) dispatch({ type: 'SET_ONBOARDED' });
   }, [state.onboarded]);
 
+  const hasLoaded = useRef(false);
   const latestFetch = useRef(0);
   const fetchBoard = useCallback(() => {
     const id = ++latestFetch.current;
@@ -75,8 +77,8 @@ export default function Board({ navigation }: Props) {
 
   const load = useCallback(() => {
     resetNewPosts();
-    setLoading(true);
-    fetchBoard().finally(() => setLoading(false));
+    if (!hasLoaded.current) setLoading(true); // only the first load shimmers; refetches update in place
+    fetchBoard().finally(() => { hasLoaded.current = true; setLoading(false); });
   }, [fetchBoard]);
 
   const onRefresh = useCallback(() => {
@@ -138,7 +140,7 @@ export default function Board({ navigation }: Props) {
 
   const openCard = (c: PostCard, request?: ApiJoinRequest) => {
     if (c.hostId === state.userId) navigation.navigate('PlanManage', { id: c.id });
-    else if (request?.status === 'APPROVED') navigation.navigate('Chat', { id: c.id });
+    else if (request?.status === 'APPROVED' && c.shapeLabel === 'Group') navigation.navigate('Chat', { id: c.id });
     else navigation.navigate('Detail', { id: c.id });
   };
 
@@ -166,12 +168,17 @@ export default function Board({ navigation }: Props) {
         <View style={{ paddingTop: 16, paddingBottom: 14 }}>
           <FilterChips
             scroll
+            fixedFirst
             items={BOARD_CHIPS}
-            active={PLAN_TYPES.map((tp, i) => (state.typeFilters.includes(tp) ? i + 1 : -1)).filter((i) => i > 0)}
+            active={[
+              ...(state.whoThere === 1 ? [1] : []),
+              ...QUICK_TYPES.map((tp, i) => (state.typeFilters.includes(tp) ? i + 2 : -1)).filter((i) => i > 0),
+            ]}
             onChange={(i) => {
               if (i === 0) navigation.navigate('SearchFilters');
+              else if (i === 1) dispatch({ type: 'SET_WHO_THERE', whoThere: state.whoThere === 1 ? 2 : 1 });
               else {
-                const tp = PLAN_TYPES[i - 1];
+                const tp = QUICK_TYPES[i - 2];
                 dispatch({ type: 'SET_TYPE_FILTERS', types: state.typeFilters.includes(tp) ? state.typeFilters.filter((x) => x !== tp) : [...state.typeFilters, tp] });
               }
             }}
@@ -201,7 +208,8 @@ export default function Board({ navigation }: Props) {
                   onSurface
                   featured={c.isFeatured}
                   card={c}
-                  flag={error ? 'Cached' : request && joinRequestsApi.isUnread(request) ? `${s.flag} · New` : s.flag}
+                  flag={error ? 'Cached' : s.flag}
+                  updated={!!(request && joinRequestsApi.hasNewApproval(request)) || state.postUpdates.includes(c.id)}
                   flagTone={error ? 'zinc' : s.flagTone}
                   cta={error ? 'Reconnect to join' : s.cta}
                   ctaTone={error ? 'disabled' : s.ctaTone}

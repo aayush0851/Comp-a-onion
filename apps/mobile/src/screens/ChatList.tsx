@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, ToneKey } from '../theme';
@@ -9,6 +10,7 @@ import { initialsOf } from '../data/postDisplay';
 import { shortStamp } from '../data';
 import { chatApi } from '../api';
 import { connectSse } from '../realtime';
+import { useAppDispatch, useAppState } from '../store';
 import type { ApiChatMessage, ApiDmThread, ApiPostThread } from '../api/chat';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatList'>;
@@ -16,64 +18,59 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ChatList'>;
 const FILTERS = ['All', 'Hangouts', 'People'];
 const PEOPLE_TONES: ToneKey[] = ['sky', 'mint', 'amber', 'zinc'];
 
+const unreadLabel = (n?: number) => (!n ? null : n > 99 ? '99+' : n);
+const dmKey = (t: ApiDmThread) => chatApi.threadKey(t.post.id, t.peer.id);
+
+// Sets a thread's latest message and keeps the list newest-first.
+function bumpThread<T extends { lastMessage: ApiChatMessage | null }>(list: T[], isThread: (t: T) => boolean, msg: ApiChatMessage) {
+  return list
+    .map((t) => (isThread(t) ? { ...t, lastMessage: msg } : t))
+    .sort((a, b) => (b.lastMessage?.createdAt ?? '').localeCompare(a.lastMessage?.createdAt ?? ''));
+}
+
 export default function ChatList({ navigation }: Props) {
+  const state = useAppState();
+  const dispatch = useAppDispatch();
   const [filter, setFilter] = useState(0);
   const [postThreads, setPostThreads] = useState<ApiPostThread[]>([]);
   const [dmThreads, setDmThreads] = useState<ApiDmThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Also re-syncs the unread counts with the server, which is the source of truth.
   const fetchThreads = useCallback(async () => {
     const [threads, dms] = await Promise.all([chatApi.listPostThreads(), chatApi.listDmThreads()]);
-    return { threads, dms };
-  }, []);
+    setPostThreads(threads);
+    setDmThreads(dms);
+    dispatch({ type: 'SET_CHAT_UNREAD', counts: chatApi.unreadCounts(threads, dms) });
+  }, [dispatch]);
 
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
       setLoading(true);
-
-      fetchThreads()
-        .then(({ threads, dms }) => {
-          if (cancelled) return;
-          setPostThreads(threads);
-          setDmThreads(dms);
-        })
-        .finally(() => { if (!cancelled) setLoading(false); });
-
-      return () => { cancelled = true; };
+      fetchThreads().catch(() => {}).finally(() => setLoading(false));
     }, [fetchThreads]),
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchThreads()
-      .then(({ threads, dms }) => { setPostThreads(threads); setDmThreads(dms); })
-      .finally(() => setRefreshing(false));
+    fetchThreads().catch(() => {}).finally(() => setRefreshing(false));
   }, [fetchThreads]);
 
-  const postThreadIds = postThreads.map((t) => t.postId).join(',');
-  const dmPeerIds = dmThreads.map((t) => t.peer.id).join(',');
+  const shownKeys = useRef(new Set<string>());
+  shownKeys.current = new Set([...postThreads.map((t) => chatApi.threadKey(t.postId)), ...dmThreads.map(dmKey)]);
 
-  // Live updates for threads already on screen — a brand-new thread (first DM
-  // from someone, or your first message in a just-approved plan) won't appear
-  // until the list is reloaded, since there's nothing here to subscribe to yet.
+  // Live: move the thread a message belongs to to the top, or reload when it starts a new thread.
   useFocusEffect(
-    useCallback(() => {
-      if (loading) return;
-      const disconnects = [
-        ...postThreads.map((t) => connectSse<ApiChatMessage>(`/posts/${t.postId}/messages/stream`, (msg) => {
-          setPostThreads((prev) => prev
-            .map((p) => (p.postId === t.postId ? { ...p, lastMessage: msg } : p))
-            .sort((a, b) => (b.lastMessage?.createdAt ?? '').localeCompare(a.lastMessage?.createdAt ?? '')));
-        })),
-        ...dmThreads.map((t) => connectSse<ApiChatMessage>(`/users/${t.peer.id}/dm/stream`, (msg) => {
-          setDmThreads((prev) => prev.map((p) => (p.peer.id === t.peer.id ? { ...p, lastMessage: msg } : p)));
-        })),
-      ];
-      return () => disconnects.forEach((d) => d());
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading, postThreadIds, dmPeerIds]),
+    useCallback(() => connectSse<ApiChatMessage>('/chat/stream', (msg) => {
+      const key = chatApi.messageThreadKey(msg, state.userId);
+      if (!shownKeys.current.has(key)) {
+        fetchThreads().catch(() => {});
+        return;
+      }
+      setPostThreads((prev) => bumpThread(prev, (t) => chatApi.threadKey(t.postId) === key, msg));
+      setDmThreads((prev) => bumpThread(prev, (t) => dmKey(t) === key, msg));
+    }), [fetchThreads, state.userId]),
   );
 
   const visiblePostThreads = filter !== 2 ? postThreads : [];
@@ -91,7 +88,6 @@ export default function ChatList({ navigation }: Props) {
           variant="home"
           eyebrow={!loading && total > 0 ? `${total} ${total === 1 ? 'conversation' : 'conversations'}` : null}
           title="Chats"
-          subtitle="A chat opens the moment a host lets you in."
         />
 
         {loading ? (
@@ -113,34 +109,35 @@ export default function ChatList({ navigation }: Props) {
               <FilterChips items={FILTERS} active={filter} onChange={setFilter} />
             </View>
             <View style={styles.list}>
+              <View style={styles.note}>
+                <View style={styles.noteRing} />
+                <Text style={styles.noteText}>Chats close once the hangout is over, or if the host cancels it.</Text>
+              </View>
               {visiblePostThreads.map((t) => (
                 <ListRow
                   key={t.postId}
                   title={t.title}
                   meta={t.lastMessage ? `${t.lastMessage.author.name ?? 'Someone'}: ${t.lastMessage.text}` : 'Say hi to start the conversation.'}
-                  initials={initialsOf(t.title).slice(0, 1)}
-                  tone="amber"
+                  leading={<View style={styles.hangoutIcon}><Ionicons name="people" size={22} color={colors.ink} /></View>}
                   pill="HANGOUT"
                   right={t.lastMessage ? shortStamp(t.lastMessage.createdAt) : null}
+                  unread={unreadLabel(state.chatUnread[chatApi.threadKey(t.postId)])}
                   onPress={() => navigation.navigate('Chat', { id: t.postId })}
                 />
               ))}
               {visibleDmThreads.map((t, i) => (
                 <ListRow
-                  key={t.peer.id}
-                  title={t.peer.name ?? 'Someone'}
+                  key={dmKey(t)}
+                  title={`${t.peer.name ?? 'Someone'} · ${t.post.title}`}
                   meta={`${t.lastMessage.authorId === t.peer.id ? '' : 'You: '}${t.lastMessage.text}`}
                   initials={initialsOf(t.peer.name)}
                   photo={t.peer.profilePicture}
                   tone={PEOPLE_TONES[i % PEOPLE_TONES.length]}
                   right={shortStamp(t.lastMessage.createdAt)}
-                  onPress={() => navigation.navigate('RequesterChat', { requesterId: t.peer.id, name: t.peer.name ?? 'Someone' })}
+                  unread={unreadLabel(state.chatUnread[dmKey(t)])}
+                  onPress={() => navigation.navigate('RequesterChat', { planId: t.post.id, requesterId: t.peer.id, name: t.peer.name ?? 'Someone' })}
                 />
               ))}
-              <View style={styles.note}>
-                <View style={styles.noteRing} />
-                <Text style={styles.noteText}>Chats stay open for everyone who got in. Keep it to the plan — no one likes a group chat that won't die.</Text>
-              </View>
             </View>
           </>
         )}
@@ -162,7 +159,8 @@ export default function ChatList({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
   list: { paddingHorizontal: 20, gap: 9 },
-  note: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 15, marginTop: 4 },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 15, marginBottom: 4 },
   noteRing: { width: 16, height: 16, minWidth: 16, borderRadius: 999, borderWidth: 2, borderColor: colors.skyInk },
   noteText: { flex: 1, fontFamily: font.regular, fontSize: 12, lineHeight: 18, color: colors.skyInk },
+  hangoutIcon: { width: 44, height: 44, borderRadius: 999, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center' },
 });

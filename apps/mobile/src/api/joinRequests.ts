@@ -9,4 +9,6 @@ export const decide = (id: string, decision: 'APPROVED' | 'DECLINED') =>
   patch<ApiJoinRequest>(`/join-requests/${id}/decide`, { decision });
 // A decision (approved or passed) the requester hasn't acknowledged yet.
 export const isUnread = (jr: ApiJoinRequest) => jr.status !== 'PENDING' && !jr.lastReadAt;
+// Approved, and I haven't opened the hangout since. A pass or an expiry isn't flagged.
+export const hasNewApproval = (jr: ApiJoinRequest) => jr.status === 'APPROVED' && !jr.lastReadAt;
 export const markRead = (id: string) => patch<ApiJoinRequest>(`/join-requests/${id}/read`);

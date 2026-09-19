@@ -7,18 +7,27 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones } from '../theme';
 import { Avatar, Btn, CheckDot, Footer, ListRow, Notice, Sheet, TextField, UserChip, StatusScrim } from '../components/widgets';
-import { costModeLabel, genderIconSymbol, genderRestrictionLabel } from '../data';
+import { costModeLabel, genderIconSymbol } from '../data';
 import { toPostCard, type PostCard } from '../data/postDisplay';
-import { postsApi, joinRequestsApi, ApiError } from '../api';
+import { postsApi, joinRequestsApi, notificationsApi, chatApi, ApiError } from '../api';
 import type { ApiJoinRequest } from '../api/types';
-import { useAppState } from '../store';
+import { useAppDispatch, useAppState } from '../store';
 import { openMapLink } from '../data/mapLink';
+import { useLivePost } from '../realtime';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
+
+const SIDE_NOTES = [
+  'Be on time — the group waits only a few minutes.',
+  'Behave kindly and respect everyone in the group.',
+  'Let the host know early if your plans change.',
+  'Meet in public places and keep your belongings safe.',
+];
 
 export default function Detail({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const state = useAppState();
+  const dispatch = useAppDispatch();
   const [activity, setActivity] = useState<PostCard | null>(null);
   const [myRequest, setMyRequest] = useState<ApiJoinRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,22 +37,34 @@ export default function Detail({ navigation, route }: Props) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [hostStartedChat, setHostStartedChat] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
+  const fetchPlan = useCallback(() =>
       Promise.all([postsApi.getPost(route.params.id), joinRequestsApi.listMine()])
         .then(([post, mine]) => {
           setActivity(toPostCard(post));
           const request = mine.find((jr) => jr.postId === route.params.id) ?? null;
           setMyRequest(request);
+          setHostStartedChat(false);
+          if (request?.status === 'PENDING') {
+            chatApi.listDmThread(post.hostId, post.id).then((m) => setHostStartedChat(m.length > 0)).catch(() => {});
+          }
           // Opening the plan acknowledges the update, which clears the flag on its card.
           if (request && joinRequestsApi.isUnread(request)) joinRequestsApi.markRead(request.id).catch(() => {});
+          notificationsApi.markPostNotificationsRead(route.params.id, ['APPROVAL']).catch(() => {});
+          dispatch({ type: 'CLEAR_POST_UPDATE', postId: route.params.id });
         })
-        .catch(() => setError("Couldn't load this hangout."))
-        .finally(() => setLoading(false));
-    }, [route.params.id]),
-  );
+        .catch(() => setError("Couldn't load this hangout.")),
+    [route.params.id]);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    fetchPlan().finally(() => setLoading(false));
+  }, [fetchPlan]));
+
+  useLivePost(route.params.id, fetchPlan);
+
+  useFocusEffect(useCallback(() => { notificationsApi.setOpenPost(route.params.id); return () => notificationsApi.setOpenPost(null); }, [route.params.id]));
 
   if (loading || !activity) {
     return (
@@ -57,9 +78,6 @@ export default function Detail({ navigation, route }: Props) {
   const activeRequest = myRequest && myRequest.status !== 'DECLINED' && myRequest.status !== 'EXPIRED' ? myRequest : null;
   const closedRequest = myRequest && !activeRequest ? myRequest : null;
   const cta = activity.entry === 'open' ? 'Take a seat' : 'Ask to join';
-  const ctaNote = activity.entry === 'open'
-    ? 'No approval on this one. The chat opens straight away.'
-    : `${activity.hostFirst} reads one line and decides. No chat until then.`;
   const seatsBadge = activity.isExpired ? 'ENDED' : activity.isFull ? 'FULL' : `${activity.seatsLeft} SEAT${activity.seatsLeft === 1 ? '' : 'S'} LEFT`;
   const tags = [...activity.tags, activity.shapeLabel];
   const whenLabel = activity.time === 'Flexible' ? `${activity.dateLabel} · any time` : `${activity.time} · ${activity.dateLabel}`;
@@ -77,14 +95,6 @@ export default function Detail({ navigation, route }: Props) {
       setSending(false);
     }
   };
-
-  const specs: [string, string][] = [
-    ['When', whenLabel],
-    ['Where', activity.venue ?? 'Group picks in chat'],
-    ['Getting in', activity.entry === 'open' ? 'Open seats' : 'Curated approval'],
-    ['Who can join', genderRestrictionLabel(activity.genderRestriction)],
-    ...(activity.costMode ? [['Cost', costModeLabel(activity.costMode) as string] as [string, string]] : []),
-  ];
 
   return (
     <View style={styles.screen}>
@@ -104,7 +114,7 @@ export default function Detail({ navigation, route }: Props) {
             {!!activity.description && <Text style={styles.heroDescription}>{activity.description}</Text>}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 13, flexWrap: 'wrap' }}>
               <View style={styles.timePill}><Text style={styles.timePillLabel}>{whenLabel}</Text></View>
-              {activity.costMode && (
+              {activity.costMode === 'host' && (
                 <View style={styles.softPill}><Text style={styles.softPillLabel}>{costModeLabel(activity.costMode)}</Text></View>
               )}
             </View>
@@ -148,15 +158,10 @@ export default function Detail({ navigation, route }: Props) {
             <Text style={styles.chevron}>›</Text>
           </Pressable>
 
-          <View style={[styles.box, styles.specs]}>
-            {specs.map(([k, v], i) => (
-              <View key={k} style={[styles.specRow, i < specs.length - 1 && styles.specRule]}>
-                <Text style={styles.specKey}>{k}</Text>
-                <Text
-                  style={[styles.specVal, k === 'Where' && !!activity.mapUrl && styles.mapLink]}
-                  onPress={k === 'Where' && activity.mapUrl ? () => openMapLink(activity.mapUrl!) : undefined}
-                >{v}</Text>
-              </View>
+          <View style={[styles.box, styles.notes]}>
+            <Text style={styles.notesTitle}>Good to know</Text>
+            {SIDE_NOTES.map((n) => (
+              <Text key={n} style={styles.note}>•  {n}</Text>
             ))}
           </View>
         </View>
@@ -165,17 +170,20 @@ export default function Detail({ navigation, route }: Props) {
 
       <Footer>
         {isHost && <Btn label="Manage hangout" onPress={() => navigation.navigate('PlanManage', { id: activity.id })} />}
-        {!isHost && activeRequest?.status === 'APPROVED' && (
+        {!isHost && activeRequest?.status === 'APPROVED' && activity.shapeLabel === 'Group' && (
           <Btn label="Open chat" variant="amber" onPress={() => navigation.navigate('Chat', { id: activity.id })} />
         )}
-        {!isHost && activeRequest?.status === 'PENDING' && (
-          <>
+        {!isHost && (activeRequest?.status === 'APPROVED' || (activeRequest?.status === 'PENDING' && hostStartedChat)) && (
+          <View style={activity.shapeLabel === 'Group' && activeRequest.status === 'APPROVED' ? { marginTop: 8 } : undefined}>
             <Btn
-              label={`Message ${activity.hostFirst}`}
+              label={activity.shapeLabel === 'Duo' && activeRequest.status === 'APPROVED' ? 'Open chat' : `Message ${activity.hostFirst}`}
+              variant={activity.shapeLabel === 'Duo' && activeRequest.status === 'APPROVED' ? 'amber' : 'secondary'}
               onPress={() => navigation.navigate('RequesterChat', { planId: activity.id, requesterId: activity.hostId, name: activity.host })}
             />
-            <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
-          </>
+          </View>
+        )}
+        {!isHost && activeRequest?.status === 'PENDING' && (
+          <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
         )}
         {!isHost && closedRequest && (
           <>
@@ -194,7 +202,6 @@ export default function Detail({ navigation, route }: Props) {
           <>
             {!!error && <Text style={[styles.ctaNote, { color: colors.roseInk, marginTop: 0, marginBottom: 8 }]}>{error}</Text>}
             <Btn label={cta} onPress={() => setAsking(true)} />
-            <Text style={styles.ctaNote}>{ctaNote}</Text>
           </>
         ))}
         {sent && (
@@ -269,12 +276,9 @@ const styles = StyleSheet.create({
   goingTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
   goingSub: { fontFamily: font.regular, fontSize: 12, color: colors.zinc500, marginTop: 2 },
   chevron: { fontFamily: font.bold, fontSize: 16, color: colors.zinc300 },
-  specs: { marginTop: 9, paddingVertical: 4 },
-  specRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 13 },
-  specRule: { borderBottomWidth: 1, borderBottomColor: colors.zinc200 },
-  specKey: { fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500 },
-  mapLink: { textDecorationLine: 'underline' },
-  specVal: { flexShrink: 1, textAlign: 'right', fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
+  notes: { marginTop: 9, gap: 7 },
+  notesTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
+  note: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 18, color: colors.zinc500 },
   ctaNote: { textAlign: 'center', fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500, marginTop: 12 },
   askInput: { marginTop: 16, minHeight: 96, paddingTop: 14, textAlignVertical: 'top', fontFamily: font.semibold, fontSize: 15, lineHeight: 21 },
   counter: { alignSelf: 'flex-end', fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.zinc400, marginTop: 8 },

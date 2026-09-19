@@ -32,7 +32,7 @@ export class JoinRequestsService {
     const status = post.entryMode === 'OPEN' ? 'APPROVED' : 'PENDING';
     let joinRequest;
     try {
-      joinRequest = await this.prisma.joinRequest.create({ data: { postId, userId, introText, status } });
+      joinRequest = await this.prisma.joinRequest.create({ data: { postId, userId, introText, status, approvedAt: status === 'APPROVED' ? new Date() : null } });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException('Already requested to join this post');
@@ -97,7 +97,7 @@ export class JoinRequestsService {
       if (approvedCount >= jr.post.seatsTotal) {
         throw new ConflictException('Post is at capacity');
       }
-      return tx.joinRequest.update({ where: { id: joinRequestId }, data: { status: 'APPROVED', lastReadAt: null } });
+      return tx.joinRequest.update({ where: { id: joinRequestId }, data: { status: 'APPROVED', lastReadAt: null, approvedAt: new Date() } });
     });
     await this.notifications.create(jr.userId, 'APPROVAL', { postId: jr.postId, joinRequestId, decision });
     await publishPostUpdate(this.prisma, this.emitter, jr.postId);

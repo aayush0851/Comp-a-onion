@@ -9,6 +9,7 @@ import { formatPostDate, formatPostTime, initialsOf } from '../data/postDisplay'
 import { useAppState } from '../store';
 import { chatApi, postsApi } from '../api';
 import { connectSse } from '../realtime';
+import { useChatThreadRead } from '../hooks/useChatThreadRead';
 import type { ApiChatMessage } from '../api/chat';
 import type { ApiPost } from '../api/types';
 
@@ -23,11 +24,13 @@ export default function Chat({ navigation, route }: Props) {
   const [post, setPost] = useState<ApiPost | null>(null);
   const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  useChatThreadRead(route.params.id);
 
   useFocusEffect(
     useCallback(() => {
       postsApi.getPost(route.params.id).then(setPost);
-      chatApi.listPostMessages(route.params.id).then(setMsgs);
+      chatApi.listPostMessages(route.params.id).then(setMsgs).finally(() => setLoaded(true));
       const disconnect = connectSse<ApiChatMessage>(
         `/posts/${route.params.id}/messages/stream`,
         (msg) => setMsgs((prev) => appendUnique(prev, msg)),
@@ -47,7 +50,11 @@ export default function Chat({ navigation, route }: Props) {
   const authorIds = [...new Set(msgs.map((m) => m.authorId))];
   const toneFor = (id: string) => (post && id === post.hostId ? ([colors.amber, colors.ink] as const) : seatTones[authorIds.indexOf(id) % seatTones.length]);
   const last = msgs[msgs.length - 1];
-  const hostFirst = post?.host.name?.split(' ')[0];
+  // Joins without a time sort first; ISO strings compare correctly as text.
+  const timeline = [
+    ...(post?.going ?? []).map((user) => ({ kind: 'join' as const, at: user.joinedAt ?? '', user })),
+    ...msgs.map((msg) => ({ kind: 'msg' as const, at: msg.createdAt, msg })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
 
   return (
     <View style={styles.screen}>
@@ -60,15 +67,20 @@ export default function Chat({ navigation, route }: Props) {
         onBack={() => navigation.navigate('ChatList')}
       />
       <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder="Message the group" />}>
-        {!!post && post.hostId !== state.userId && <SystemNote>Chat opened when {hostFirst ?? 'the host'} let you in</SystemNote>}
-        {msgs.length === 0 && (
+        {loaded && msgs.length === 0 && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <EmptyState shape="bubble" tone="sky" title="Say hi to the group" body="Nobody's said anything yet. Where to meet is a good first message." />
           </View>
         )}
-        {msgs.map((m, i) => {
+        {timeline.map((item, i) => {
+          if (item.kind === 'join') {
+            const u = item.user;
+            return <SystemNote key={`join-${u.id}`}>{u.id === state.userId ? 'You' : (u.name?.split(' ')[0] ?? 'Someone')} joined</SystemNote>;
+          }
+          const m = item.msg;
           const mine = m.authorId === state.userId;
-          const showName = !mine && msgs[i - 1]?.authorId !== m.authorId;
+          const prev = timeline[i - 1];
+          const showName = !mine && (prev?.kind !== 'msg' || prev.msg.authorId !== m.authorId);
           return (
             <Bubble
               key={m.id}

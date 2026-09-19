@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import Octicons from '@expo/vector-icons/Octicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, font, lift, seatTones, ToneKey, tones } from '../../theme';
 import { Avatar } from './Avatar';
@@ -24,8 +26,30 @@ const CTA: Record<CtaTone, [string, string]> = {
   disabled: [colors.zinc200, colors.zinc400],
 };
 
+const BLURB_LINES = 3;
+
+// Clamps the description to three lines; "See more" opens the plan detail. A hidden unclamped copy tells us whether it overflows.
+function Blurb({ text, onSeeMore }: { text: string; onSeeMore?: () => void }) {
+  const [overflows, setOverflows] = useState(false);
+  return (
+    <View>
+      <Text style={styles.blurb} numberOfLines={BLURB_LINES}>{text}</Text>
+      <Text
+        style={[styles.blurb, styles.blurbMeasure]}
+        onTextLayout={(e) => setOverflows(e.nativeEvent.lines.length > BLURB_LINES)}
+        pointerEvents="none"
+      >
+        {text}
+      </Text>
+      {overflows && (
+        <Text style={styles.seeMore} onPress={onSeeMore}>See more</Text>
+      )}
+    </View>
+  );
+}
+
 export function HangoutCard({
-  card, hostRating, hostTone = 'amber', verified = true, flag, flagTone = 'zinc', tags = [], cta, ctaTone = 'ink',
+  card, hostRating, hostTone = 'amber', verified = true, flag, flagIcon, flagTone = 'zinc', updated, tags = [], cta, ctaTone = 'ink',
   featured, onSurface, dimmed, onPress, onPressHost, onPressCta,
 }: {
   card: PostCard;
@@ -33,6 +57,9 @@ export function HangoutCard({
   hostTone?: ToneKey;
   verified?: boolean;
   flag?: string | null;
+  flagIcon?: 'zap' | 'lock';
+  // Something changed on this hangout since it was last opened; shows a dot on the card's corner.
+  updated?: boolean;
   flagTone?: FlagTone;
   tags?: string[];
   cta?: string | null;
@@ -50,6 +77,7 @@ export function HangoutCard({
   const [ctaBg, ctaFg] = CTA[ctaTone];
   return (
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: cardBg }, dimmed && { opacity: 0.55 }]}>
+      {updated && <View style={styles.updatedBadge} accessibilityLabel="New update" />}
       <View style={styles.top}>
         <Pressable onPress={onPressHost ?? onPress} style={styles.hostTap}>
           <Avatar initials={hostInitials} photo={hostPhoto} size={44} colorsOverride={tones[hostTone]} />
@@ -70,14 +98,15 @@ export function HangoutCard({
             </Text>
           </View>
         </Pressable>
-        {!!flag && (
-          <View style={[styles.flag, { backgroundColor: flagBg }]}>
-            <Text style={[styles.flagLabel, { color: flagFg }]} numberOfLines={1}>{flag}</Text>
+        {(!!flag || !!flagIcon) && (
+          <View style={[styles.flag, !!flag && { backgroundColor: flagBg }, !!flagIcon && styles.flagWithIcon]}>
+            {!!flagIcon && <Octicons name={flagIcon} size={flag ? 12 : 16} color={flag ? flagFg : colors.zinc500} />}
+            {!!flag && <Text style={[styles.flagLabel, { color: flagFg }]} numberOfLines={1}>{flag}</Text>}
           </View>
         )}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {!!blurb && <Text style={styles.blurb}>{blurb}</Text>}
+      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      {!!blurb && <Blurb text={blurb} onSeeMore={onPress} />}
       {tags.length > 0 && (
         <View style={styles.tags}>
           {tags.map((t) => (
@@ -87,7 +116,7 @@ export function HangoutCard({
           ))}
         </View>
       )}
-      <View style={[styles.footer, { borderTopColor: featured ? 'rgba(24,24,24,.14)' : colors.zinc100 }]}>
+      <View style={[styles.footer, { borderTopColor: featured ? 'rgba(24,24,24,.14)' : onSurface ? colors.zinc200 : colors.zinc100 }]}>
         <View style={styles.seatsWrap}>
           {going.length > 0 && (
             <View style={{ flexDirection: 'row' }}>
@@ -119,13 +148,17 @@ export function HangoutCard({
 
 const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 16 },
+  updatedBadge: { position: 'absolute', top: -4, right: -4, zIndex: 1, width: 14, height: 14, borderRadius: 999, backgroundColor: colors.amber, borderWidth: 2.5, borderColor: colors.white },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   hostTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 },
   host: { fontFamily: font.bold, fontSize: 14.5, letterSpacing: -0.3, color: colors.ink, flexShrink: 1 },
   star: { fontSize: 10, color: colors.amber },
   rating: { fontFamily: font.bold, fontSize: 11.5, color: colors.ink },
+  blurbMeasure: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
+  seeMore: { fontFamily: font.bold, fontSize: 12.5, color: colors.zinc700, marginTop: 4 },
   mapLink: { textDecorationLine: 'underline' },
   where: { fontFamily: font.medium, fontSize: 11.5, color: colors.zinc500, marginTop: 3 },
+  flagWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   flag: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, maxWidth: 140 },
   flagLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: -0.1, ...lift(10.5) },
   title: { fontFamily: font.extrabold, fontSize: 18, lineHeight: 23, letterSpacing: -0.5, color: colors.ink, marginTop: 14 },

@@ -1,9 +1,11 @@
 import { useRef } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { colors, font } from '../../theme';
 import { Avatar } from './Avatar';
+import { useKeyboardVisible } from '../../hooks/useKeyboardVisible';
 
 export type BubbleMessage = { id: string; text: string; mine: boolean; authorName?: string | null; authorInitials?: string; authorPhoto?: string | null; authorTone?: readonly [string, string] };
 
@@ -42,24 +44,27 @@ export function Bubble({ m, showName }: { m: BubbleMessage; showName?: boolean }
 export function ChatBody({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   const scrollRef = useRef<ScrollView>(null);
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={{ flex: 1 }}>
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        onLayout={() => scrollRef.current?.scrollToEnd({ animated: false })}
       >
         {children}
       </ScrollView>
       {footer}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 export function Composer({ value, onChange, onSend, placeholder }: { value: string; onChange: (t: string) => void; onSend: () => void; placeholder: string }) {
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardVisible();
   return (
-    <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+    <View style={[styles.composer, { paddingBottom: keyboard ? 12 : Math.max(insets.bottom, 12) + 12 }]}>
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -70,7 +75,7 @@ export function Composer({ value, onChange, onSend, placeholder }: { value: stri
         onSubmitEditing={onSend}
       />
       <Pressable onPress={onSend} disabled={!value.trim()} accessibilityLabel="Send" style={[styles.send, !value.trim() && { opacity: 0.4 }]}>
-        <Text style={styles.sendGlyph}>↑</Text>
+        <FontAwesome name="send" size={16} color={colors.amber} />
       </Pressable>
     </View>
   );
@@ -88,5 +93,4 @@ const styles = StyleSheet.create({
   composer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 12, paddingHorizontal: 16, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.zinc200 },
   input: { flex: 1, backgroundColor: colors.zinc100, borderRadius: 22, minHeight: 44, maxHeight: 120, paddingHorizontal: 16, paddingVertical: 11, fontFamily: font.semibold, fontSize: 14, color: colors.ink },
   send: { width: 44, height: 44, minWidth: 44, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  sendGlyph: { fontFamily: font.bold, fontSize: 16, color: colors.amber },
 });

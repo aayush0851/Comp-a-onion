@@ -37,7 +37,7 @@ export default function SearchFilters({ navigation }: Props) {
     setWhen(0);
     setGroupSize(2);
     setTypes([]);
-    setWhoThere(1);
+    setWhoThere(2);
     setProximity(PROXIMITY_MAX_KM);
     setHideAsked(false);
   };

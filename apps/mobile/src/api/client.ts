@@ -13,6 +13,7 @@ export async function loadToken(): Promise<string | null> {
 
 export async function setToken(next: string | null): Promise<void> {
   token = next;
+  etagCache.clear();
   if (next) await AsyncStorage.setItem(TOKEN_KEY, next);
   else await AsyncStorage.removeItem(TOKEN_KEY);
 }
@@ -27,15 +28,23 @@ export class ApiError extends Error {
   }
 }
 
+// GET responses by path with their ETag; a 304 hands back the same parsed object so React sees no change.
+const etagCache = new Map<string, { etag: string; body: unknown }>();
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const isGet = !options.method || options.method === 'GET';
+  const cached = isGet ? etagCache.get(path) : undefined;
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(cached ? { 'If-None-Match': cached.etag } : {}),
       ...options.headers,
     },
   });
+
+  if (res.status === 304 && cached) return cached.body as T;
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -46,7 +55,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   // Nest sends an empty body (not the string "null") when a handler returns
   // null/undefined, e.g. a "does this exist" lookup with nothing found.
   const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  const body = text ? JSON.parse(text) : undefined;
+  const etag = res.headers.get('etag');
+  if (isGet && etag) etagCache.set(path, { etag, body });
+  return body as T;
 }
 
 export const get = <T>(path: string) => apiFetch<T>(path);

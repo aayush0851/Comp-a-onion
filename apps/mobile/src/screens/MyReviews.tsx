@@ -71,7 +71,7 @@ export default function MyReviews({ navigation }: Props) {
             <EmptyState
               tone="amber"
               title="No reputation yet"
-              body="Go to one hangout and your Checked record starts filling in."
+              body="Go to one hangout and your record starts filling in."
               cta="See tonight's hangouts"
               onPressCta={() => navigation.navigate('Board')}
             />

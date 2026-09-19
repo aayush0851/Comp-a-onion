@@ -38,7 +38,8 @@ export function boardQueryString(s: BoardFilterState): string {
   const params: string[] = [];
   if (s.filter !== 3) params.push(`filter=${s.filter}`);
   if (s.groupSize !== 2) params.push(`groupSize=${s.groupSize}`);
-  if (s.whoThere === 0) params.push('womenOnly=true');
+  if (s.whoThere === 0) params.push('gender=MEN');
+  if (s.whoThere === 1) params.push('gender=WOMEN');
   if (s.typeFilters.length > 0) params.push(`types=${encodeURIComponent(s.typeFilters.join(','))}`);
   params.push(`proximityKm=${Math.round(s.proximityKm)}`);
   if (s.searchQuery.trim()) params.push(`q=${encodeURIComponent(s.searchQuery.trim())}`);

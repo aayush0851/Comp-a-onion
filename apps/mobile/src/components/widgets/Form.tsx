@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import Octicons from '@expo/vector-icons/Octicons';
 import { colors, font, text } from '../../theme';
@@ -44,14 +44,18 @@ export function ToggleRow({
   );
 }
 
-export const TextField = forwardRef<TextInput, TextInputProps & { big?: boolean }>(function TextField({ style, big, value, ...rest }, ref) {
+export const TextField = forwardRef<TextInput, TextInputProps & { big?: boolean; hidePlaceholderOnFocus?: boolean }>(function TextField({ style, big, value, hidePlaceholderOnFocus, placeholder, onFocus, onBlur, ...rest }, ref) {
   const filled = !!value && String(value).length > 0;
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
       ref={ref}
       value={value}
+      placeholder={hidePlaceholderOnFocus && focused ? '' : placeholder}
       placeholderTextColor={colors.zinc400}
       style={[styles.field, big && styles.fieldBig, filled ? styles.fieldFilled : styles.fieldEmpty, style]}
+      onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+      onBlur={(e) => { setFocused(false); onBlur?.(e); }}
       {...rest}
     />
   );

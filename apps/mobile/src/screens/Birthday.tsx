@@ -88,6 +88,7 @@ export default function Birthday({ navigation }: Props) {
             value={day}
             onChangeText={(t) => updateField('day', t)}
             placeholder="DD"
+            hidePlaceholderOnFocus
             keyboardType="number-pad"
             maxLength={2}
             autoFocus
@@ -99,6 +100,7 @@ export default function Birthday({ navigation }: Props) {
             value={month}
             onChangeText={(t) => updateField('month', t)}
             placeholder="MM"
+            hidePlaceholderOnFocus
             keyboardType="number-pad"
             maxLength={2}
             selectTextOnFocus
@@ -109,6 +111,7 @@ export default function Birthday({ navigation }: Props) {
             value={year}
             onChangeText={(t) => updateField('year', t)}
             placeholder="YYYY"
+            hidePlaceholderOnFocus
             keyboardType="number-pad"
             maxLength={4}
             selectTextOnFocus

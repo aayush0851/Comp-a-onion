@@ -8,7 +8,7 @@ import { EmptyState, FilterChips, HangoutCard, Header, ListRow, ListSkeleton, No
 import type { CtaTone, FlagTone } from '../components/widgets';
 import { formatPostDate, formatPostTime, toPostCard } from '../data/postDisplay';
 import { postsApi, joinRequestsApi } from '../api';
-import { useAppState } from '../store';
+import { useAppDispatch, useAppState } from '../store';
 import type { ApiPost } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyPlans'>;
@@ -20,18 +20,19 @@ const FILTERS = ['Upcoming', 'Archived'] as const;
 
 const ROLE_UI: Record<Role, { flag: (e: ApiPost) => string; flagTone: (e: ApiPost) => FlagTone; cta: string; ctaTone: CtaTone }> = {
   host: {
-    flag: (e) => (e.entryMode === 'APPROVE' ? 'You approve' : 'Open'),
+    flag: () => '',
     flagTone: (e) => (e.entryMode === 'APPROVE' ? 'amber' : 'sky'),
     cta: 'Manage',
     ctaTone: 'ink',
   },
   approved: { flag: () => "You're in", flagTone: () => 'mint', cta: 'Open chat', ctaTone: 'amber' },
-  pending: { flag: () => 'Asked', flagTone: () => 'sky', cta: 'Requested', ctaTone: 'soft' },
+  pending: { flag: () => 'Requested', flagTone: () => 'sky', cta: 'Requested', ctaTone: 'soft' },
   declined: { flag: () => 'Passed', flagTone: () => 'zinc', cta: 'Not this time', ctaTone: 'disabled' },
 };
 
 export default function MyPlans({ navigation }: Props) {
   const state = useAppState();
+  const dispatch = useAppDispatch();
   const [filter, setFilter] = useState<typeof FILTERS[number]>('Upcoming');
   const [hosted, setHosted] = useState<ApiPost[]>([]);
   const [joined, setJoined] = useState<MyPlanItem[]>([]);
@@ -44,14 +45,17 @@ export default function MyPlans({ navigation }: Props) {
     return Promise.all([postsApi.listHosted(), joinRequestsApi.listMine()])
       .then(([hostedPosts, requests]) => {
         setHosted(hostedPosts);
+        // An archived hangout is shown disabled, so it never carries an update flag.
+        const archivedIds = [...hostedPosts, ...requests.flatMap((jr) => (jr.post ? [jr.post] : []))].filter((p) => p.isArchived).map((p) => p.id);
+        archivedIds.forEach((postId) => dispatch({ type: 'CLEAR_POST_UPDATE', postId }));
         setJoined(
           requests
             .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING' || jr.status === 'DECLINED') && jr.post && jr.post.hostId !== state.userId)
-            .map((jr) => ({ post: jr.post!, role: jr.status === 'APPROVED' ? 'approved' as const : jr.status === 'DECLINED' ? 'declined' as const : 'pending' as const, unread: joinRequestsApi.isUnread(jr) })),
+            .map((jr) => ({ post: jr.post!, role: jr.status === 'APPROVED' ? 'approved' as const : jr.status === 'DECLINED' ? 'declined' as const : 'pending' as const, unread: joinRequestsApi.hasNewApproval(jr) })),
         );
       })
       .catch((e) => { console.error('My plans load failed', e); setError("Couldn't load your hangouts. Pull down to try again."); });
-  }, [state.userId]);
+  }, [state.userId, dispatch]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +84,7 @@ export default function MyPlans({ navigation }: Props) {
 
   const openItem = ({ post: e, role }: MyPlanItem) => {
     if (role === 'host') navigation.navigate('PlanManage', { id: e.id });
-    else if (role === 'approved') navigation.navigate('Chat', { id: e.id });
+    else if (role === 'approved' && e.seatsTotal > 2) navigation.navigate('Chat', { id: e.id });
     else navigation.navigate('Detail', { id: e.id });
   };
 
@@ -114,7 +118,7 @@ export default function MyPlans({ navigation }: Props) {
               title={filter === 'Archived' ? 'Nothing archived yet' : 'Nothing posted yet'}
               body={filter === 'Archived'
                 ? 'Hangouts land here once they wrap up.'
-                : 'One honest sentence about tonight is enough. It goes out to Checked people nearby.'}
+                : 'One honest sentence about tonight is enough. It goes out to people nearby.'}
               cta={filter === 'Archived' ? undefined : 'Post a hangout'}
               onPressCta={() => navigation.navigate('Create')}
             />
@@ -137,7 +141,9 @@ export default function MyPlans({ navigation }: Props) {
                   }}
                   hostTone={isHost ? 'ink' : 'amber'}
                   hostRating={isHost && e.host.aggregatedRating ? e.host.aggregatedRating : null}
-                  flag={item.unread ? `${ui.flag(e)} · New` : ui.flag(e)}
+                  flag={ui.flag(e)}
+                  updated={!!item.unread || state.postUpdates.includes(e.id)}
+                  flagIcon={isHost ? (e.entryMode === 'APPROVE' ? 'lock' : 'zap') : undefined}
                   flagTone={ui.flagTone(e)}
                   cta={ui.cta}
                   ctaTone={ui.ctaTone}

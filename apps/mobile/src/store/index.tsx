@@ -9,15 +9,22 @@ import type { PlansState } from './plansStore/schema';
 import { plansInitialState, plansReducer } from './plansStore/model';
 import type { ReviewState } from './reviewStore/schema';
 import { reviewInitialState, reviewReducer } from './reviewStore/model';
+import type { ChatState } from './chatStore/schema';
+import { chatInitialState, chatReducer } from './chatStore/model';
 import type { Action } from './actions';
+import { chatApi, notificationsApi } from '../api';
+import { isPlanUpdate, type ApiNotification } from '../api/notifications';
+import type { ApiChatMessage } from '../api/chat';
+import { connectSse } from '../realtime';
 
-export type AppState = AuthState & OnboardingState & PlansState & ReviewState;
+export type AppState = AuthState & OnboardingState & PlansState & ReviewState & ChatState;
 
 const initialState: AppState = {
   ...authInitialState,
   ...onboardingInitialState,
   ...plansInitialState,
   ...reviewInitialState,
+  ...chatInitialState,
 };
 
 function rootReducer(state: AppState, action: Action): AppState {
@@ -29,6 +36,7 @@ function rootReducer(state: AppState, action: Action): AppState {
   next = onboardingReducer(next, action);
   next = plansReducer(next, action);
   next = reviewReducer(next, action);
+  next = chatReducer(next, action);
   return next;
 }
 
@@ -65,6 +73,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (state.isAuthenticated) registerForPushNotifications();
     else unregisterPushNotifications();
   }, [state.authReady, state.isAuthenticated]);
+
+  // One stream keeps the hangout-update flags current everywhere in the app.
+  useEffect(() => {
+    if (!state.authReady || !state.isAuthenticated) return;
+    notificationsApi.listNotifications()
+      .then((items) => dispatch({ type: 'SET_POST_UPDATES', ids: items.filter(isPlanUpdate).map((n) => n.payload.postId!) }))
+      .catch(() => {});
+    return connectSse<ApiNotification>('/notifications/stream', (n) => {
+      if (!isPlanUpdate(n)) return;
+      if (notificationsApi.isPostOpen(n.payload.postId)) notificationsApi.markNotificationRead(n.id).catch(() => {});
+      else dispatch({ type: 'ADD_POST_UPDATE', postId: n.payload.postId! });
+    });
+  }, [state.authReady, state.isAuthenticated]);
+
+  // Same for chats: a message from someone else flags its thread unless that chat is open.
+  useEffect(() => {
+    if (!state.authReady || !state.isAuthenticated) return;
+    chatApi.loadUnreadCounts().then((counts) => dispatch({ type: 'SET_CHAT_UNREAD', counts })).catch(() => {});
+    return connectSse<ApiChatMessage>('/chat/stream', (m) => {
+      if (m.authorId === state.userId) return;
+      const key = chatApi.messageThreadKey(m, state.userId);
+      if (!chatApi.isThreadOpen(key)) dispatch({ type: 'BUMP_CHAT_UNREAD', key });
+    });
+  }, [state.authReady, state.isAuthenticated, state.userId]);
 
   const value = useMemo(() => state, [state]);
   return (

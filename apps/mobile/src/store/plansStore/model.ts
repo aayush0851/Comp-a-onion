@@ -22,9 +22,10 @@ export const plansInitialState: PlansState = {
   filter: 0,
   searchQuery: '',
   groupSize: 2,
-  whoThere: 1,
+  whoThere: 2,
   hideAsked: false,
   boardVersion: 0,
+  postUpdates: [] as string[],
   typeFilters: [] as string[],
   ...emptyDraft,
 };
@@ -41,6 +42,12 @@ export function plansReducer(state: AppState, action: Action): AppState {
       return { ...state, whoThere: action.whoThere };
     case 'SET_TYPE_FILTERS':
       return { ...state, typeFilters: action.types };
+    case 'SET_POST_UPDATES':
+      return { ...state, postUpdates: [...new Set(action.ids)] };
+    case 'ADD_POST_UPDATE':
+      return state.postUpdates.includes(action.postId) ? state : { ...state, postUpdates: [...state.postUpdates, action.postId] };
+    case 'CLEAR_POST_UPDATE':
+      return state.postUpdates.includes(action.postId) ? { ...state, postUpdates: state.postUpdates.filter((id) => id !== action.postId) } : state;
     case 'REFRESH_BOARD':
       return { ...state, boardVersion: state.boardVersion + 1 };
     case 'SET_HIDE_ASKED':

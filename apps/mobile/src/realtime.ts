@@ -1,3 +1,5 @@
+import { useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import EventSource from 'react-native-sse';
 import { API_BASE_URL } from './config';
 import { getToken } from './api/client';
@@ -22,4 +24,18 @@ export function connectSse<T>(path: string, onMessage: (data: T) => void): () =>
   });
 
   return () => es.close();
+}
+
+// While a plan screen is focused, calls onChange whenever that plan changes (seats, status) or a
+// request/decision notification about it arrives, so the screen re-fetches without a shimmer.
+export function useLivePost(postId: string, onChange: () => void) {
+  const cb = useRef(onChange);
+  cb.current = onChange;
+  useFocusEffect(useCallback(() => {
+    const offPost = connectSse<{ type?: string }>(`/posts/${postId}/stream`, () => cb.current());
+    const offNotes = connectSse<{ payload: { postId?: string } }>('/notifications/stream', (n) => {
+      if (n.payload?.postId === postId) cb.current();
+    });
+    return () => { offPost(); offNotes(); };
+  }, [postId]));
 }

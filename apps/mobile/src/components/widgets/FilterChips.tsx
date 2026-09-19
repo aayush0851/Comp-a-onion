@@ -5,8 +5,9 @@ import { colors, font, lift } from '../../theme';
 export type ChipItem = string | { label: string; glyph?: string | ReactNode };
 
 export function FilterChips({
-  items, active, onChange, activeTone = 'ink', scroll, multi,
+  items, active, onChange, activeTone = 'ink', scroll, multi, fixedFirst,
 }: {
+  fixedFirst?: boolean;
   items: ChipItem[];
   active: number | number[];
   onChange?: (i: number) => void;
@@ -35,6 +36,16 @@ export function FilterChips({
       </Pressable>
     );
   });
+  if (scroll && fixedFirst) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ paddingLeft: 20, paddingRight: 8 }}>{chips[0]}</View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
+          {chips.slice(1)}
+        </ScrollView>
+      </View>
+    );
+  }
   if (scroll) {
     return (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>

@@ -20,7 +20,7 @@ export default function Signup({ navigation }: Props) {
       <View style={{ paddingTop: 64, paddingHorizontal: 24 }}>
         <Text style={styles.title}>Nobody free tonight?</Text>
         <Text style={[styles.title, { color: colors.amber }]}>Somebody is.</Text>
-        <Text style={styles.lede}>Post a hangout. It goes out to Checked strangers nearby. You handpick who comes. That's the whole app.</Text>
+        <Text style={styles.lede}>Post a hangout. It goes out to strangers nearby. You handpick who comes. That's the whole app.</Text>
       </View>
       <View style={{ paddingTop: 36, paddingHorizontal: 24, gap: 13 }}>
         {SIGNUP_STEPS.map((s) => (

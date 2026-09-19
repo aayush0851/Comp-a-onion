@@ -14,7 +14,7 @@ export type RootStackParamList = {
   Detail: { id: string };
   MyPlans: undefined;
   PlanManage: { id: string };
-  RequesterChat: { planId?: string; requesterId: string; name: string };
+  RequesterChat: { planId: string; requesterId: string; name: string };
   RequesterProfile: { userId: string };
   MyReviews: undefined;
   SentRequests: undefined;

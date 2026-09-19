@@ -10,6 +10,8 @@ export type PlansState = {
   hideAsked: boolean;
   // Bumped to make the board re-fetch and re-open its stream (e.g. after the profile location changes).
   boardVersion: number;
+  // Hangouts with updates I haven't acknowledged yet (drives the dot on the tab and the flag on cards).
+  postUpdates: string[];
   typeFilters: string[];
 
   // create-flow draft
@@ -34,6 +36,9 @@ export type PlansAction =
   | { type: 'SET_WHO_THERE'; whoThere: 0 | 1 | 2 }
   | { type: 'SET_HIDE_ASKED'; value: boolean }
   | { type: 'REFRESH_BOARD' }
+  | { type: 'SET_POST_UPDATES'; ids: string[] }
+  | { type: 'ADD_POST_UPDATE'; postId: string }
+  | { type: 'CLEAR_POST_UPDATE'; postId: string }
   | { type: 'SET_TYPE_FILTERS'; types: string[] }
   | { type: 'SET_STEP'; step: 0 | 1 | 2 }
   | { type: 'SET_TITLE'; title: string }

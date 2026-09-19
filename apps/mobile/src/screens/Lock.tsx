@@ -33,7 +33,7 @@ export default function Lock({ navigation }: Props) {
           </Pressable>
         </View>
       </View>
-      <Text style={styles.reach}>Sent to 214 Checked people within a mile. Three seats, host picks.</Text>
+      <Text style={styles.reach}>Sent to 214 people within a mile. Three seats, host picks.</Text>
       <View style={{ flex: 1 }} />
       <Text style={styles.hint}>Swipe up to open</Text>
       <View style={styles.homeBar} />

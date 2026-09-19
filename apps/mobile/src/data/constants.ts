@@ -22,11 +22,11 @@ export const FILTER_LABELS = ['Tonight', 'Tomorrow', 'This week', 'Any'];
 
 export const GROUP_SIZE_LABELS = ['Duo', 'Group', 'Any size'];
 
-export const WHO_THERE_LABELS = ['Women only', 'Anyone', 'Checked hosts'];
+export const WHO_THERE_LABELS = ['Men only', 'Women only', 'Anyone'];
 
 export const SIGNUP_STEPS = [
   { n: 1, t: "Post what you're doing tonight" },
-  { n: 2, t: 'Checked strangers ask to join' },
+  { n: 2, t: 'Strangers ask to join' },
   { n: 3, t: 'You pick who sits with you' },
 ];
 

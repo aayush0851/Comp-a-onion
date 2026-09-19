@@ -5,18 +5,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones, text } from '../theme';
-import { Avatar, BackButton, Badge, Btn, EmptyState, Footer, Header, ListSkeleton, ratingText, StatTiles, StatusScrim } from '../components/widgets';
+import { Avatar, BackButton, Badge, EmptyState, Header, ListSkeleton, ratingText, StatTiles, StatusScrim } from '../components/widgets';
 import { initialsOf } from '../data/postDisplay';
-import { useAppState } from '../store';
 import { usersApi } from '../api';
 import type { ApiUser } from '../api/types';
-import { memberSince } from './Profile';
+import { isNewMember, memberSince } from './Profile';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterProfile'>;
 
 export default function RequesterProfile({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const state = useAppState();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -42,7 +40,6 @@ export default function RequesterProfile({ navigation, route }: Props) {
   }
 
   const name = user.name ?? 'Someone';
-  const isMe = user.id === state.userId;
   const since = memberSince(user.createdAt);
   const highlights = user.highlights.slice(0, 6);
 
@@ -51,13 +48,13 @@ export default function RequesterProfile({ navigation, route }: Props) {
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={[styles.topRow, { paddingTop: insets.top + 2 }]}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.id}>ID # {user.id.slice(-4).toUpperCase()}</Text>
         </View>
 
         <View style={styles.identity}>
           <Avatar initials={initialsOf(user.name)} photo={user.profilePicture} size={80} rounded={24} tone="amber" />
           <Text style={styles.name}>{name}</Text>
-          <Text style={[text.eyebrow, { fontSize: 10, marginTop: 6 }]}>#Checked member{since ? ` · since ${since}` : ''}</Text>
+          {isNewMember(user.createdAt) && <Badge label="New" tone="mint" />}
+          {!!since && <Text style={[text.eyebrow, { fontSize: 10, marginTop: 6 }]}>Member since {since}</Text>}
         </View>
 
         <View style={styles.section}>
@@ -98,7 +95,7 @@ export default function RequesterProfile({ navigation, route }: Props) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Checked Badges</Text>
+          <Text style={styles.sectionTitle}>Badges</Text>
           <View style={styles.tags}>
             <Badge label="Verified Identity" tone="sky" />
             {user.aggregatedRating >= 4.5 && <Badge label="Highly rated" tone="amber" glyph="★" />}
@@ -106,12 +103,6 @@ export default function RequesterProfile({ navigation, route }: Props) {
         </View>
       </ScrollView>
       <StatusScrim />
-
-      {!isMe && (
-        <Footer>
-          <Btn label={`Say hi to ${name.split(' ')[0]}`} glyph="✓" variant="amber" onPress={() => navigation.navigate('RequesterChat', { requesterId: user.id, name })} />
-        </Footer>
-      )}
     </View>
   );
 }
@@ -119,7 +110,6 @@ export default function RequesterProfile({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44, paddingHorizontal: 20 },
-  id: { fontFamily: font.monoSemibold, fontSize: 11, color: colors.zinc400 },
   identity: { alignItems: 'center', paddingTop: 12, paddingHorizontal: 20 },
   name: { fontFamily: font.extrabold, fontSize: 24, letterSpacing: -0.9, color: colors.ink, marginTop: 14, textAlign: 'center' },
   section: { paddingTop: 18, paddingHorizontal: 20 },
