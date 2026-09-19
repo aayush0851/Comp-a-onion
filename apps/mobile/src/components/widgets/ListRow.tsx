@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   pillLabel: { fontFamily: font.extrabold, fontSize: 9, letterSpacing: 0.5 },
   meta: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 17, color: colors.zinc500, marginTop: 3 },
   right: { fontFamily: font.semibold, fontSize: 11, color: colors.zinc400 },
-  unread: { minWidth: 20, height: 20, borderRadius: 999, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  unreadLabel: { fontFamily: font.extrabold, fontSize: 11, color: colors.ink },
+  unread: { minWidth: 24, height: 24, borderRadius: 999, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  unreadLabel: { fontFamily: font.extrabold, fontSize: 11, lineHeight: 14, color: colors.ink, includeFontPadding: false, textAlignVertical: 'center' },
   chevron: { fontFamily: font.bold, fontSize: 16, color: colors.zinc300 },
 });

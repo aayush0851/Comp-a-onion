@@ -97,7 +97,7 @@ export class PostsService {
     const bounds = proximityBounds(requester, filters.proximityKm);
     if (bounds) where.host = bounds;
 
-    const posts = await this.prisma.post.findMany({ where, ...POST_WITH_ATTENDEES, orderBy: { date: 'asc' } });
+    const posts = await this.prisma.post.findMany({ where, ...POST_WITH_ATTENDEES, orderBy: { createdAt: 'desc' } });
     return posts.map(shapePost);
   }
 
@@ -136,7 +136,7 @@ export class PostsService {
     const posts = await this.prisma.post.findMany({
       where: { hostId, isArchived: query.archiveLookup ? undefined : false },
       ...POST_WITH_ATTENDEES,
-      orderBy: { date: 'asc' },
+      orderBy: { createdAt: 'desc' },
     });
     return posts.map(shapePost);
   }

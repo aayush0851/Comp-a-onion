@@ -72,7 +72,7 @@ export default function MyPlans({ navigation }: Props) {
   const hostedItems: MyPlanItem[] = hosted.map((post) => ({ post, role: 'host' as const }));
   const archived = hostedItems.filter((i) => i.post.isArchived);
   const upcoming = [...hostedItems.filter((i) => !i.post.isArchived), ...joined.filter((i) => !i.post.isArchived)]
-    .sort((a, b) => a.post.date.localeCompare(b.post.date));
+    .sort((a, b) => b.post.createdAt.localeCompare(a.post.createdAt));
   const items = filter === 'Archived' ? archived : upcoming;
   const nightsOut = archived.filter((i) => i.post.seatsFilled > 0).length;
 

@@ -15,7 +15,7 @@ export function authReducer(state: AppState, action: Action): AppState {
     case 'HYDRATE_AUTH':
       return { ...state, authReady: true, isAuthenticated: action.isAuthenticated, onboarded: action.onboarded, userId: action.userId };
     case 'AUTH_SUCCESS':
-      return { ...state, isAuthenticated: true, userId: action.userId };
+      return { ...state, isAuthenticated: true, userId: action.userId, onboarded: state.onboarded || action.onboarded };
     case 'SET_ONBOARDED':
       return { ...state, onboarded: true };
     case 'SET_PROXIMITY':
