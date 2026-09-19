@@ -5,6 +5,7 @@ import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
 import { Btn, Footer, Header, Notice, TextField } from '../components/widgets';
 import { useAppState, useAppDispatch } from '../store';
+import { useOnboardingSave } from '../hooks/useOnboardingSave';
 import { ONBOARDING_STEPS } from '../data';
 import { isDefined } from '@companion/common';
 
@@ -44,6 +45,7 @@ export default function Birthday({ navigation }: Props) {
   const validFormat = complete && isValidDate(Number(day), Number(month), Number(year));
   const age = validFormat ? calcAge(Number(day), Number(month), Number(year)) : null;
   const canContinue = validFormat && isDefined(age) && age >= 18;
+  const { save, saving, error: saveError } = useOnboardingSave();
 
   const setField = (field: 'day' | 'month' | 'year', value: string) => dispatch({ type: 'SET_DOB', field, value });
 
@@ -68,7 +70,7 @@ export default function Birthday({ navigation }: Props) {
 
   const submit = () => {
     if (!canContinue) return;
-    navigation.navigate('Gender');
+    save({ dob: `${year}-${month}-${day}` }, () => navigation.navigate('Gender'));
   };
 
   return (
@@ -127,7 +129,8 @@ export default function Birthday({ navigation }: Props) {
       </View>
       <View style={{ flex: 1 }} />
       <Footer>
-        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+        {!!saveError && <Notice tone="rose">{saveError}</Notice>}
+        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} loading={saving} onPress={submit} />
       </Footer>
     </View>
   );

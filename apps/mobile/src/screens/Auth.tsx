@@ -6,11 +6,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
 import { Footer, Header, Notice } from '../components/widgets';
-import { ONBOARDING_STEPS } from '../data';
+import { ONBOARDING_STEPS, resumeOnboarding } from '../data';
 import { useAppDispatch } from '../store';
 import { GOOGLE_WEB_CLIENT_ID } from '../config';
 import { authApi } from '../api';
-import type { ApiUser } from '../api/types';
 import { persistSession } from '../store/authStore/service';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
@@ -28,9 +27,6 @@ function parseHashParams(url: string): Record<string, string> {
   }
   return params;
 }
-
-// Onboarding saves these to the server in one go, so an existing account skips it after a reinstall.
-const isOnboarded = (user: ApiUser) => !!user.name && !!user.dob && !!user.gender;
 
 export default function Auth({ navigation }: Props) {
   const dispatch = useAppDispatch();
@@ -54,7 +50,8 @@ export default function Auth({ navigation }: Props) {
       const { accessToken, user } = await authApi.loginWithGoogle(access_token);
       await persistSession(accessToken);
       dispatch({ type: 'SET_OAUTH_IDENTITY', email: profile.email ?? user.email ?? '', name: profile.given_name ?? user.name ?? '', provider: 'google' });
-      dispatch({ type: 'AUTH_SUCCESS', userId: user.id, onboarded: isOnboarded(user) });
+      dispatch({ type: 'AUTH_SUCCESS', userId: user.id, ...resumeOnboarding(user) });
+      dispatch({ type: 'HYDRATE_PROFILE', user });
     } catch {
       setError("Couldn't sign in with Google. Try again.");
     } finally {
@@ -102,7 +99,8 @@ export default function Auth({ navigation }: Props) {
       const { accessToken, user } = await authApi.loginWithApple(credential.identityToken!);
       await persistSession(accessToken);
       dispatch({ type: 'SET_OAUTH_IDENTITY', email: credential.email ?? user.email ?? '', name: name || user.name || '', provider: 'apple' });
-      dispatch({ type: 'AUTH_SUCCESS', userId: user.id, onboarded: isOnboarded(user) });
+      dispatch({ type: 'AUTH_SUCCESS', userId: user.id, ...resumeOnboarding(user) });
+      dispatch({ type: 'HYDRATE_PROFILE', user });
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') setError("Couldn't sign in with Apple. Try again.");
     }

@@ -32,12 +32,14 @@ export class UsersService {
   }
 
   async updateMe(userId: string, dto: UpdateUserDto) {
-    const current = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, dob: true, gender: true } });
+    const current = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, dob: true, gender: true, isOnboarded: true } });
     const dob = dto.dob ? new Date(dto.dob) : undefined;
+    // Onboarding saves each step as it goes, so these stay editable (going back a step) until it's done.
     const changed =
-      isChanged(dto.name, current.name) ||
-      isChanged(dto.gender, current.gender) ||
-      isChanged(dob, current.dob, (a, b) => a.getTime() === b.getTime());
+      current.isOnboarded &&
+      (isChanged(dto.name, current.name) ||
+        isChanged(dto.gender, current.gender) ||
+        isChanged(dob, current.dob, (a, b) => a.getTime() === b.getTime()));
     if (changed) throw new BadRequestException('Name, date of birth and gender can’t be changed once set');
     if (dob && !isAtLeastMinAge(dob)) throw new BadRequestException(`You must be at least ${MIN_AGE_YEARS} years old`);
     return this.prisma.user.update({

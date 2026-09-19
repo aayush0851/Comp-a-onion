@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Equals, IsArray, IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -44,4 +44,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
+  // Only ever flipped on — the app sends it once the user reaches the board.
+  @IsOptional()
+  @Equals(true)
+  isOnboarded?: boolean;
 }

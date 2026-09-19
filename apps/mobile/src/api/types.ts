@@ -31,6 +31,7 @@ export type ApiUser = {
   vibeTags: string[];
   aggregatedRating: number;
   createdAt: string;
+  isOnboarded?: boolean;
 };
 
 export type ApiPost = {

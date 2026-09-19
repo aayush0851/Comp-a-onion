@@ -41,16 +41,9 @@ export default function Highlights({ navigation, route }: Props) {
     setSaving(true);
     setError('');
     try {
+      // Earlier steps already saved the rest of the profile.
       const highlights = await uploadPendingHighlights();
-      const { day, month, year } = state.dob;
-      await usersApi.updateMe({
-        name: state.name || undefined,
-        dob: day && month && year ? `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` : undefined,
-        gender: (state.gender === 'Self-describe' ? state.genderCustom : state.gender) || undefined,
-        genderVisible: state.genderVisible,
-        vibeTags: state.vibeTags,
-        highlights,
-      });
+      await usersApi.updateMe({ highlights });
       navigation.navigate(SELFIE_VERIFICATION_ENABLED ? 'Verify' : 'Board');
     } catch (e) {
       console.error('Onboarding profile save failed', e);

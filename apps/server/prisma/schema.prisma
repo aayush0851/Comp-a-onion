@@ -70,6 +70,7 @@ model User {
   aggregatedRating Float        @default(0)
   isMalice         Boolean      @default(false)
   isVerified       Boolean      @default(false)
+  isOnboarded      Boolean      @default(false)
   isArchived       Boolean      @default(false)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt

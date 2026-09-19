@@ -1,3 +1,5 @@
+import type { ApiUser } from '../../api/types';
+
 export type HighlightMedia = { uri: string; type: 'image' | 'video' };
 
 export type OnboardingState = {
@@ -16,6 +18,7 @@ export type OnboardingState = {
 
 export type OnboardingAction =
   | { type: 'SET_OAUTH_IDENTITY'; email: string; name: string; provider: 'google' | 'apple' }
+  | { type: 'HYDRATE_PROFILE'; user: ApiUser }
   | { type: 'SET_NAME'; name: string }
   | { type: 'SET_DOB'; field: 'day' | 'month' | 'year'; value: string }
   | { type: 'SET_GENDER'; gender: string }

@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
-import { Btn, ConfirmStrip, FieldLabel, Footer, Header, TextField } from '../components/widgets';
+import { Btn, ConfirmStrip, FieldLabel, Footer, Header, Notice, TextField } from '../components/widgets';
 import { useAppDispatch, useAppState } from '../store';
+import { useOnboardingSave } from '../hooks/useOnboardingSave';
 import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Name'>;
@@ -14,11 +15,12 @@ export default function Name({ navigation }: Props) {
   const state = useAppState();
   const [name, setName] = useState(state.name);
   const canContinue = name.trim().length > 0;
+  const { save, saving, error: saveError } = useOnboardingSave();
 
   const submit = () => {
     if (!canContinue) return;
     dispatch({ type: 'SET_NAME', name: name.trim() });
-    navigation.navigate('Birthday');
+    save({ name: name.trim() }, () => navigation.navigate('Birthday'));
   };
 
   return (
@@ -41,7 +43,8 @@ export default function Name({ navigation }: Props) {
       </View>
       <View style={{ flex: 1 }} />
       <Footer>
-        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+        {!!saveError && <Notice tone="rose">{saveError}</Notice>}
+        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} loading={saving} onPress={submit} />
       </Footer>
     </View>
   );

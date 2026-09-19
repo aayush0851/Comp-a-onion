@@ -2,8 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
-import { Btn, FilterChips, Footer, Header } from '../components/widgets';
+import { Btn, FilterChips, Footer, Header, Notice } from '../components/widgets';
 import { useAppState, useAppDispatch } from '../store';
+import { useOnboardingSave } from '../hooks/useOnboardingSave';
 import { ONBOARDING_STEPS, PROFILE_TAGS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Vibe'>;
@@ -12,10 +13,11 @@ export default function Vibe({ navigation }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const canContinue = state.vibeTags.length > 0;
+  const { save, saving, error: saveError } = useOnboardingSave();
 
   const submit = () => {
     if (!canContinue) return;
-    navigation.navigate('ProfilePhoto');
+    save({ vibeTags: state.vibeTags }, () => navigation.navigate('ProfilePhoto'));
   };
 
   return (
@@ -41,7 +43,8 @@ export default function Vibe({ navigation }: Props) {
       </View>
       <View style={{ flex: 1 }} />
       <Footer>
-        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+        {!!saveError && <Notice tone="rose">{saveError}</Notice>}
+        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} loading={saving} onPress={submit} />
       </Footer>
     </View>
   );

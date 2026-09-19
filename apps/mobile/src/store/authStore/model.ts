@@ -6,6 +6,7 @@ export const authInitialState: AuthState = {
   authReady: false,
   isAuthenticated: false,
   onboarded: false,
+  onboardingRoute: 'Name',
   proximityKm: 100,
   userId: null,
 };
@@ -13,9 +14,9 @@ export const authInitialState: AuthState = {
 export function authReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'HYDRATE_AUTH':
-      return { ...state, authReady: true, isAuthenticated: action.isAuthenticated, onboarded: action.onboarded, userId: action.userId };
+      return { ...state, authReady: true, isAuthenticated: action.isAuthenticated, onboarded: action.onboarded, onboardingRoute: action.onboardingRoute, userId: action.userId };
     case 'AUTH_SUCCESS':
-      return { ...state, isAuthenticated: true, userId: action.userId, onboarded: state.onboarded || action.onboarded };
+      return { ...state, isAuthenticated: true, userId: action.userId, onboarded: action.onboarded, onboardingRoute: action.onboardingRoute };
     case 'SET_ONBOARDED':
       return { ...state, onboarded: true };
     case 'SET_PROXIMITY':

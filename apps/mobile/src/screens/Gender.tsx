@@ -2,8 +2,9 @@ import { StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors } from '../theme';
-import { Btn, Footer, Header, RadioRow, TextField, ToggleRow } from '../components/widgets';
+import { Btn, Footer, Header, Notice, RadioRow, TextField, ToggleRow } from '../components/widgets';
 import { useAppDispatch, useAppState } from '../store';
+import { useOnboardingSave } from '../hooks/useOnboardingSave';
 import { GENDER_OPTIONS, ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Gender'>;
@@ -17,10 +18,12 @@ export default function Gender({ navigation }: Props) {
   const dispatch = useAppDispatch();
   const isCustom = state.gender === SELF_DESCRIBE;
   const canContinue = !!state.gender && (!isCustom || state.genderCustom.trim().length > 0);
+  const { save, saving, error: saveError } = useOnboardingSave();
 
   const submit = () => {
     if (!canContinue) return;
-    navigation.navigate('Vibe');
+    const gender = isCustom ? state.genderCustom.trim() : state.gender!;
+    save({ gender, genderVisible: state.genderVisible }, () => navigation.navigate('Vibe'));
   };
 
   return (
@@ -56,7 +59,8 @@ export default function Gender({ navigation }: Props) {
       </View>
       <View style={{ flex: 1 }} />
       <Footer>
-        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} onPress={submit} />
+        {!!saveError && <Notice tone="rose">{saveError}</Notice>}
+        <Btn label="Continue" variant={canContinue ? 'primary' : 'disabled'} loading={saving} onPress={submit} />
       </Footer>
     </View>
   );

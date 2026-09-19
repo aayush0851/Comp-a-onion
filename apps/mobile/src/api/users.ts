@@ -12,6 +12,7 @@ export type UpdateMeInput = Partial<{
   vibeTags: string[];
   latitude: number;
   longitude: number;
+  isOnboarded: true;
 }>;
 
 export const getMe = () => get<ApiUser>('/users/me');

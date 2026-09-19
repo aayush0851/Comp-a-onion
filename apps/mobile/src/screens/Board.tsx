@@ -9,7 +9,7 @@ import { EmptyState, FeaturedCard, Notice, FilterChips, HangoutCard, Header, Lis
 import type { CtaTone, FlagTone } from '../components/widgets';
 import { formatProximityKm } from '../data';
 import { PostCard, toPostCard } from '../data/postDisplay';
-import { postsApi, joinRequestsApi } from '../api';
+import { postsApi, joinRequestsApi, usersApi } from '../api';
 import { boardQueryString } from '../api/posts';
 import { connectSse } from '../realtime';
 import type { ApiPost, ApiJoinRequest } from '../api/types';
@@ -51,7 +51,9 @@ export default function Board({ navigation }: Props) {
   const [lastLoaded, setLastLoaded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!state.onboarded) dispatch({ type: 'SET_ONBOARDED' });
+    if (state.onboarded) return;
+    dispatch({ type: 'SET_ONBOARDED' });
+    usersApi.updateMe({ isOnboarded: true }).catch((e) => console.error('Onboarded flag save failed', e));
   }, [state.onboarded]);
 
   const hasLoaded = useRef(false);

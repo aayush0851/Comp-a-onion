@@ -7,6 +7,8 @@ import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
 import { Btn, Footer, Header, Notice } from '../components/widgets';
 import { useAppDispatch, useAppState } from '../store';
+import { useOnboardingSave } from '../hooks/useOnboardingSave';
+import { uploadMedia } from '../firebase';
 import { ONBOARDING_STEPS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfilePhoto'>;
@@ -15,6 +17,7 @@ export default function ProfilePhoto({ navigation }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [error, setError] = useState('');
+  const { save, saving, error: saveError } = useOnboardingSave();
 
   const pick = async () => {
     setError('');
@@ -49,13 +52,17 @@ export default function ProfilePhoto({ navigation }: Props) {
             </>
           )}
         </Pressable>
-        {!!error && <Notice tone="rose" style={{ marginTop: 12 }}>{error}</Notice>}
+        {!!(error || saveError) && <Notice tone="rose" style={{ marginTop: 12 }}>{error || saveError}</Notice>}
       </View>
       <View style={{ flex: 1 }} />
       <Footer>
         {state.profilePhoto ? (
           <>
-            <Btn label="Continue" onPress={() => navigation.navigate('Highlights')} />
+            <Btn
+              label="Continue"
+              loading={saving}
+              onPress={() => save(async () => ({ profilePicture: state.profilePhoto!.startsWith('http') ? state.profilePhoto! : await uploadMedia(state.profilePhoto!) }), () => navigation.navigate('Highlights'))}
+            />
             <Btn label="Choose a different photo" variant="ghost" onPress={pick} />
           </>
         ) : (

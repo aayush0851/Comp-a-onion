@@ -55,7 +55,7 @@ function RootNavigator() {
 
   if (!state.authReady) return <LoadingScreen />;
 
-  const initialRouteName = !state.isAuthenticated ? 'Signup' : state.onboarded ? 'Board' : 'Name';
+  const initialRouteName = !state.isAuthenticated ? 'Signup' : state.onboarded ? 'Board' : state.onboardingRoute;
 
   return (
     <NavigationContainer>

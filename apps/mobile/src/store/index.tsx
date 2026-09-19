@@ -47,8 +47,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(rootReducer, initialState);
 
   useEffect(() => {
-    loadStoredAuth().then((identity) => {
+    loadStoredAuth().then(({ me, ...identity }) => {
       dispatch({ type: 'HYDRATE_AUTH', ...identity });
+      if (me) dispatch({ type: 'HYDRATE_PROFILE', user: me });
     });
   }, []);
 
