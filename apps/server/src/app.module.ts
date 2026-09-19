@@ -5,7 +5,7 @@ import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
-import { EventsModule } from './events/events.module.js';
+import { PostsModule } from './posts/posts.module.js';
 import { JoinRequestsModule } from './join-requests/join-requests.module.js';
 import { ChatModule } from './chat/chat.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
@@ -20,7 +20,7 @@ import { JobsModule } from './jobs/jobs.module.js';
     PrismaModule,
     AuthModule,
     UsersModule,
-    EventsModule,
+    PostsModule,
     JoinRequestsModule,
     ChatModule,
     ReviewsModule,

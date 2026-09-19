@@ -1,13 +1,16 @@
+import { POST_DESCRIPTION_MAX, POST_TITLE_MAX, VENUE_PATTERN, VENUE_TEXT_MAX } from '@companion/common';
 import { CostMode, EntryMode, GenderRestriction } from '@prisma/client';
-import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Matches, Min } from 'class-validator';
 
-export class CreateEventDto {
+export class CreatePostDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(POST_TITLE_MAX)
   title!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(POST_DESCRIPTION_MAX)
   description?: string;
 
   @IsDateString()
@@ -19,6 +22,7 @@ export class CreateEventDto {
 
   @IsOptional()
   @IsString()
+  @Matches(VENUE_PATTERN, { message: `venue must be a link or at most ${VENUE_TEXT_MAX} characters` })
   venue?: string;
 
   @IsOptional()

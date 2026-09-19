@@ -2,22 +2,24 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones } from '../theme';
 import { Avatar, Btn, CheckDot, Footer, ListRow, Notice, Sheet, TextField, UserChip, StatusScrim } from '../components/widgets';
 import { costModeLabel, genderIconSymbol, genderRestrictionLabel } from '../data';
-import { toEventCard, type EventCard } from '../data/eventDisplay';
-import { eventsApi, joinRequestsApi, ApiError } from '../api';
+import { toPostCard, type PostCard } from '../data/postDisplay';
+import { postsApi, joinRequestsApi, ApiError } from '../api';
 import type { ApiJoinRequest } from '../api/types';
 import { useAppState } from '../store';
+import { openMapLink } from '../data/mapLink';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
 export default function Detail({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const state = useAppState();
-  const [activity, setActivity] = useState<EventCard | null>(null);
+  const [activity, setActivity] = useState<PostCard | null>(null);
   const [myRequest, setMyRequest] = useState<ApiJoinRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [asking, setAsking] = useState(false);
@@ -30,10 +32,13 @@ export default function Detail({ navigation, route }: Props) {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      Promise.all([eventsApi.getEvent(route.params.id), joinRequestsApi.listMine()])
-        .then(([event, mine]) => {
-          setActivity(toEventCard(event));
-          setMyRequest(mine.find((jr) => jr.eventId === route.params.id) ?? null);
+      Promise.all([postsApi.getPost(route.params.id), joinRequestsApi.listMine()])
+        .then(([post, mine]) => {
+          setActivity(toPostCard(post));
+          const request = mine.find((jr) => jr.postId === route.params.id) ?? null;
+          setMyRequest(request);
+          // Opening the plan acknowledges the update, which clears the flag on its card.
+          if (request && joinRequestsApi.isUnread(request)) joinRequestsApi.markRead(request.id).catch(() => {});
         })
         .catch(() => setError("Couldn't load this hangout."))
         .finally(() => setLoading(false));
@@ -50,11 +55,12 @@ export default function Detail({ navigation, route }: Props) {
 
   const isHost = activity.hostId === state.userId;
   const activeRequest = myRequest && myRequest.status !== 'DECLINED' && myRequest.status !== 'EXPIRED' ? myRequest : null;
+  const closedRequest = myRequest && !activeRequest ? myRequest : null;
   const cta = activity.entry === 'open' ? 'Take a seat' : 'Ask to join';
   const ctaNote = activity.entry === 'open'
     ? 'No approval on this one. The chat opens straight away.'
     : `${activity.hostFirst} reads one line and decides. No chat until then.`;
-  const seatsBadge = activity.isFull ? 'FULL' : `${activity.seatsLeft} SEAT${activity.seatsLeft === 1 ? '' : 'S'} LEFT`;
+  const seatsBadge = activity.isExpired ? 'ENDED' : activity.isFull ? 'FULL' : `${activity.seatsLeft} SEAT${activity.seatsLeft === 1 ? '' : 'S'} LEFT`;
   const tags = [...activity.tags, activity.shapeLabel];
   const whenLabel = activity.time === 'Flexible' ? `${activity.dateLabel} · any time` : `${activity.time} · ${activity.dateLabel}`;
 
@@ -86,12 +92,14 @@ export default function Detail({ navigation, route }: Props) {
         <View style={[styles.hero, { paddingTop: insets.top + 2 }]}>
           <View style={styles.heroTop}>
             <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.heroBack}>
-              <Text style={styles.heroBackGlyph}>←</Text>
+              <Octicons name="arrow-left" size={18} color={colors.amber} />
             </Pressable>
             <View style={styles.seatsPill}><Text style={styles.seatsPillLabel}>{seatsBadge}</Text></View>
           </View>
           <View style={{ paddingTop: 16, paddingHorizontal: 20 }}>
-            <Text style={styles.heroEyebrow} numberOfLines={1}>{activity.venue ?? 'Anywhere nearby'}</Text>
+            <Text style={styles.heroEyebrow} numberOfLines={1} onPress={activity.mapUrl ? () => openMapLink(activity.mapUrl!) : undefined}>
+              {activity.venue ?? 'Anywhere nearby'}
+            </Text>
             <Text style={styles.heroTitle}>{activity.title}</Text>
             {!!activity.description && <Text style={styles.heroDescription}>{activity.description}</Text>}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 13, flexWrap: 'wrap' }}>
@@ -144,7 +152,10 @@ export default function Detail({ navigation, route }: Props) {
             {specs.map(([k, v], i) => (
               <View key={k} style={[styles.specRow, i < specs.length - 1 && styles.specRule]}>
                 <Text style={styles.specKey}>{k}</Text>
-                <Text style={styles.specVal}>{v}</Text>
+                <Text
+                  style={[styles.specVal, k === 'Where' && !!activity.mapUrl && styles.mapLink]}
+                  onPress={k === 'Where' && activity.mapUrl ? () => openMapLink(activity.mapUrl!) : undefined}
+                >{v}</Text>
               </View>
             ))}
           </View>
@@ -166,10 +177,18 @@ export default function Detail({ navigation, route }: Props) {
             <Text style={styles.ctaNote}>Request sent — {activity.hostFirst} hasn't answered yet.</Text>
           </>
         )}
-        {!isHost && !activeRequest && !sent && (activity.isFull ? (
+        {!isHost && closedRequest && (
           <>
-            <Btn label="Full" variant="disabled" />
-            <Text style={styles.ctaNote}>This hangout filled up — no seats left.</Text>
+            <Btn label={closedRequest.status === 'DECLINED' ? 'Not this time' : 'Expired'} variant="disabled" />
+            <Text style={styles.ctaNote}>
+              {closedRequest.status === 'DECLINED' ? `${activity.hostFirst} passed on this one. You can't ask again.` : 'Your request expired before it was answered.'}
+            </Text>
+          </>
+        )}
+        {!isHost && !activeRequest && !closedRequest && !sent && (activity.isExpired || activity.isFull ? (
+          <>
+            <Btn label={activity.isExpired ? 'Ended' : 'Full'} variant="disabled" />
+            <Text style={styles.ctaNote}>{activity.isExpired ? 'This hangout has already started.' : 'This hangout filled up — no seats left.'}</Text>
           </>
         ) : (
           <>
@@ -232,7 +251,6 @@ const styles = StyleSheet.create({
   hero: { backgroundColor: colors.amber, paddingBottom: 20, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingTop: 2, paddingHorizontal: 20 },
   heroBack: { width: 42, height: 42, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  heroBackGlyph: { fontFamily: font.bold, fontSize: 17, color: colors.amber },
   seatsPill: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   seatsPillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.amber },
   heroEyebrow: { fontFamily: font.extrabold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.amberInk },
@@ -255,6 +273,7 @@ const styles = StyleSheet.create({
   specRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 13 },
   specRule: { borderBottomWidth: 1, borderBottomColor: colors.zinc200 },
   specKey: { fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500 },
+  mapLink: { textDecorationLine: 'underline' },
   specVal: { flexShrink: 1, textAlign: 'right', fontFamily: font.bold, fontSize: 12.5, color: colors.ink },
   ctaNote: { textAlign: 'center', fontFamily: font.regular, fontSize: 12.5, color: colors.zinc500, marginTop: 12 },
   askInput: { marginTop: 16, minHeight: 96, paddingTop: 14, textAlignVertical: 'top', fontFamily: font.semibold, fontSize: 15, lineHeight: 21 },

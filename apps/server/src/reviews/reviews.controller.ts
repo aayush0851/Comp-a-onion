@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { ReviewsService } from './reviews.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 
@@ -9,14 +9,14 @@ import { CreateReviewDto } from './dto/create-review.dto.js';
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  @Post('events/:id/reviews')
-  submit(@CurrentUser() user: RequestUser, @Param('id') eventId: string, @Body() dto: CreateReviewDto) {
-    return this.reviewsService.submit(eventId, user.userId, dto);
+  @Post('posts/:id/reviews')
+  submit(@CurrentUser() user: RequestUser, @Param('id') postId: string, @Body() dto: CreateReviewDto) {
+    return this.reviewsService.submit(postId, user.userId, dto);
   }
 
-  @Get('events/:id/reviews/mine')
-  mine(@CurrentUser() user: RequestUser, @Param('id') eventId: string) {
-    return this.reviewsService.hasReviewed(eventId, user.userId);
+  @Get('posts/:id/reviews/mine')
+  mine(@CurrentUser() user: RequestUser, @Param('id') postId: string) {
+    return this.reviewsService.hasReviewed(postId, user.userId);
   }
 
   @Get('users/me/reviews/received')

@@ -1,5 +1,5 @@
 import { get, post } from './client';
-import type { ApiEvent, ApiUser } from './types';
+import type { ApiPost, ApiUser } from './types';
 
 export type PersonReviewInput = {
   revieweeId: string;
@@ -27,16 +27,16 @@ export type ApiPersonReview = {
   flagged: boolean;
   review: {
     id: string;
-    eventId: string;
+    postId: string;
     setupScores: Record<string, number>;
     setupTags: string[];
     createdAt: string;
-    event: Pick<ApiEvent, 'id' | 'title' | 'date'>;
+    post: Pick<ApiPost, 'id' | 'title' | 'date'>;
     reviewer: ApiUser;
   };
 };
 
-export const submitReview = (eventId: string, dto: SubmitReviewInput) =>
-  post<{ ok: true }>(`/events/${eventId}/reviews`, dto);
-export const hasReviewed = (eventId: string) => get<{ id: string } | null>(`/events/${eventId}/reviews/mine`);
+export const submitReview = (postId: string, dto: SubmitReviewInput) =>
+  post<{ ok: true }>(`/posts/${postId}/reviews`, dto);
+export const hasReviewed = (postId: string) => get<{ id: string } | null>(`/posts/${postId}/reviews/mine`);
 export const listReceived = () => get<ApiPersonReview[]>('/users/me/reviews/received');

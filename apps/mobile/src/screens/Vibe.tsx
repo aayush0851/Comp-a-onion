@@ -4,7 +4,7 @@ import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
 import { Btn, FilterChips, Footer, Header } from '../components/widgets';
 import { useAppState, useAppDispatch } from '../store';
-import { ONBOARDING_STEPS, VIBE_TAGS } from '../data';
+import { ONBOARDING_STEPS, PROFILE_TAGS } from '../data';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Vibe'>;
 
@@ -33,9 +33,9 @@ export default function Vibe({ navigation }: Props) {
         <FilterChips
           multi
           activeTone="amber"
-          items={VIBE_TAGS}
-          active={VIBE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
-          onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: VIBE_TAGS[i] })}
+          items={PROFILE_TAGS}
+          active={PROFILE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+          onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: PROFILE_TAGS[i] })}
         />
         <Text style={styles.counter}>{state.vibeTags.length} of 3 chosen</Text>
       </View>

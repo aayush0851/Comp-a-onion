@@ -2,8 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthProvider } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { verifyGoogleAccessToken } from './google-verifier.js';
-import { verifyAppleIdentityToken } from './apple-verifier.js';
+import { verifyGoogleAccessToken } from './verifiers/google-verifier.js';
+import { verifyAppleIdentityToken } from './verifiers/apple-verifier.js';
 
 @Injectable()
 export class AuthService {

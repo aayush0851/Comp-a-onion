@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Octicons from '@expo/vector-icons/Octicons';
 import { colors, font, ToneKey, tones } from '../../theme';
 import { Avatar } from './Avatar';
 import { ratingText } from './Stars';
@@ -6,7 +7,7 @@ import { ratingText } from './Stars';
 export function VerifiedDot({ size = 15 }: { size?: number }) {
   return (
     <View style={[styles.verified, { width: size, height: size, minWidth: size }]}>
-      <Text style={[styles.verifiedGlyph, { fontSize: size * 0.6 }]}>✓</Text>
+      <Octicons name="check" size={Math.round(size * 0.6)} color={colors.white} />
     </View>
   );
 }
@@ -61,7 +62,6 @@ const styles = StyleSheet.create({
   name: { fontFamily: font.bold, letterSpacing: -0.3, color: colors.ink, flexShrink: 1 },
   age: { fontFamily: font.medium, color: colors.zinc400, marginLeft: -6 },
   verified: { borderRadius: 999, backgroundColor: colors.skyBright, alignItems: 'center', justifyContent: 'center' },
-  verifiedGlyph: { fontFamily: font.extrabold, color: colors.white },
   star: { fontSize: 10, color: colors.amber },
   rating: { fontFamily: font.bold, fontSize: 11.5, color: colors.ink },
   meta: { fontFamily: font.medium, fontSize: 11.5, color: colors.zinc500, flexShrink: 1 },

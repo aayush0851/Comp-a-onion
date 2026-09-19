@@ -5,12 +5,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones } from '../theme';
 import { Bubble, ChatBody, chatTime, Composer, EmptyState, Header, SystemNote } from '../components/widgets';
-import { formatEventDate, formatEventTime, initialsOf } from '../data/eventDisplay';
+import { formatPostDate, formatPostTime, initialsOf } from '../data/postDisplay';
 import { useAppState } from '../store';
-import { chatApi, eventsApi } from '../api';
+import { chatApi, postsApi } from '../api';
 import { connectSse } from '../realtime';
 import type { ApiChatMessage } from '../api/chat';
-import type { ApiEvent } from '../api/types';
+import type { ApiPost } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -20,16 +20,16 @@ function appendUnique(prev: ApiChatMessage[], msg: ApiChatMessage): ApiChatMessa
 
 export default function Chat({ navigation, route }: Props) {
   const state = useAppState();
-  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [post, setPost] = useState<ApiPost | null>(null);
   const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
   const [draft, setDraft] = useState('');
 
   useFocusEffect(
     useCallback(() => {
-      eventsApi.getEvent(route.params.id).then(setEvent);
-      chatApi.listEventMessages(route.params.id).then(setMsgs);
+      postsApi.getPost(route.params.id).then(setPost);
+      chatApi.listPostMessages(route.params.id).then(setMsgs);
       const disconnect = connectSse<ApiChatMessage>(
-        `/events/${route.params.id}/messages/stream`,
+        `/posts/${route.params.id}/messages/stream`,
         (msg) => setMsgs((prev) => appendUnique(prev, msg)),
       );
       return disconnect;
@@ -40,30 +40,30 @@ export default function Chat({ navigation, route }: Props) {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    const msg = await chatApi.sendEventMessage(route.params.id, text);
+    const msg = await chatApi.sendPostMessage(route.params.id, text);
     setMsgs((prev) => appendUnique(prev, msg));
   };
 
   const authorIds = [...new Set(msgs.map((m) => m.authorId))];
-  const toneFor = (id: string) => (event && id === event.hostId ? ([colors.amber, colors.ink] as const) : seatTones[authorIds.indexOf(id) % seatTones.length]);
+  const toneFor = (id: string) => (post && id === post.hostId ? ([colors.amber, colors.ink] as const) : seatTones[authorIds.indexOf(id) % seatTones.length]);
   const last = msgs[msgs.length - 1];
-  const hostFirst = event?.host.name?.split(' ')[0];
+  const hostFirst = post?.host.name?.split(' ')[0];
 
   return (
     <View style={styles.screen}>
       <Header
         variant="convo"
-        title={event?.title ?? '…'}
-        subtitle={event ? `${event.seatsFilled} going · ${formatEventTime(event.time)} · ${formatEventDate(event.date)}` : ''}
+        title={post?.title ?? '…'}
+        subtitle={post ? `${post.seatsFilled} going · ${formatPostTime(post.time)} · ${formatPostDate(post.date)}` : ''}
         action="Hangout"
         onAction={() => navigation.navigate('Detail', { id: route.params.id })}
         onBack={() => navigation.navigate('ChatList')}
       />
-      <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder="Message the table" />}>
-        {!!event && event.hostId !== state.userId && <SystemNote>Chat opened when {hostFirst ?? 'the host'} let you in</SystemNote>}
+      <ChatBody footer={<Composer value={draft} onChange={setDraft} onSend={send} placeholder="Message the group" />}>
+        {!!post && post.hostId !== state.userId && <SystemNote>Chat opened when {hostFirst ?? 'the host'} let you in</SystemNote>}
         {msgs.length === 0 && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <EmptyState shape="bubble" tone="sky" title="Say hi to the table" body="Nobody's said anything yet. Where to meet is a good first message." />
+            <EmptyState shape="bubble" tone="sky" title="Say hi to the group" body="Nobody's said anything yet. Where to meet is a good first message." />
           </View>
         )}
         {msgs.map((m, i) => {

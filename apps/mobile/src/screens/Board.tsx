@@ -1,26 +1,40 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { RootStackParamList } from '../navigation';
-import { colors, font } from '../theme';
-import { EmptyState, FilterChips, HangoutCard, Header, ListSkeleton, OfflineBanner, TabBar, TabKey, StatusScrim } from '../components/widgets';
+import { colors } from '../theme';
+import { EmptyState, FeaturedCard, Notice, FilterChips, HangoutCard, Header, ListSkeleton, OfflineBanner, TabBar, TabKey, StatusScrim } from '../components/widgets';
 import type { CtaTone, FlagTone } from '../components/widgets';
-import { FILTER_LABELS, formatProximityKm } from '../data';
-import { EventCard, toEventCard } from '../data/eventDisplay';
-import { eventsApi, joinRequestsApi } from '../api';
+import { formatProximityKm, PLAN_TYPES } from '../data';
+import { PostCard, toPostCard } from '../data/postDisplay';
+import { postsApi, joinRequestsApi } from '../api';
+import { boardQueryString } from '../api/posts';
 import { connectSse } from '../realtime';
-import type { ApiEvent, ApiJoinRequest } from '../api/types';
+import type { ApiPost, ApiJoinRequest } from '../api/types';
+import type { ApiNotification } from '../api/notifications';
 import { useAppState, useAppDispatch } from '../store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Board'>;
 
-function cardState(c: EventCard, userId: string | null, request?: ApiJoinRequest): { cta: string; ctaTone: CtaTone; flag: string; flagTone: FlagTone } {
+type PostDelta = Pick<ApiPost, 'id' | 'seatsTotal' | 'seatsFilled' | 'isFull' | 'isArchived'>;
+type BoardFrame = ({ type: 'updated' } & PostDelta) | { type: 'created' };
+
+// Up to this many new posts are pulled in automatically; past it, the user pulls down to refresh.
+const MAX_AUTO_REFRESH = 5;
+
+const BOARD_CHIPS = [{ label: '', glyph: <Octicons name="sliders" size={16} color={colors.zinc700} /> }, ...PLAN_TYPES];
+
+function cardState(c: PostCard, userId: string | null, request?: ApiJoinRequest): { cta: string; ctaTone: CtaTone; flag: string; flagTone: FlagTone } {
   const seatsLeft = Math.max(0, c.seatsTotal - c.seatsFilled);
   const seatsFlag = `${seatsLeft} seat${seatsLeft === 1 ? '' : 's'}`;
   if (c.hostId === userId) return { cta: 'Manage', ctaTone: 'ink', flag: 'Hosting', flagTone: 'ink' };
   if (request?.status === 'APPROVED') return { cta: 'Open chat', ctaTone: 'amber', flag: "You're in", flagTone: 'mint' };
   if (request?.status === 'PENDING') return { cta: 'Requested', ctaTone: 'disabled', flag: 'Asked', flagTone: 'sky' };
+  if (request?.status === 'DECLINED') return { cta: 'Not this time', ctaTone: 'disabled', flag: 'Passed', flagTone: 'zinc' };
+  if (request?.status === 'EXPIRED') return { cta: 'Expired', ctaTone: 'disabled', flag: 'Expired', flagTone: 'zinc' };
+  if (c.isExpired) return { cta: 'Ended', ctaTone: 'disabled', flag: 'Ended', flagTone: 'zinc' };
   if (c.isFull) return { cta: 'Full', ctaTone: 'disabled', flag: 'Full', flagTone: 'zinc' };
   return { cta: c.entry === 'open' ? 'Take a seat' : 'Ask to join', ctaTone: 'ink', flag: seatsFlag, flagTone: seatsLeft === 1 ? 'warn' : 'zinc' };
 }
@@ -28,7 +42,7 @@ function cardState(c: EventCard, userId: string | null, request?: ApiJoinRequest
 export default function Board({ navigation }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const [events, setEvents] = useState<ApiEvent[]>([]);
+  const [posts, setPosts] = useState<ApiPost[]>([]);
   const [myRequests, setMyRequests] = useState<Map<string, ApiJoinRequest>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,35 +53,82 @@ export default function Board({ navigation }: Props) {
     if (!state.onboarded) dispatch({ type: 'SET_ONBOARDED' });
   }, [state.onboarded]);
 
+  const latestFetch = useRef(0);
   const fetchBoard = useCallback(() => {
-    return Promise.all([eventsApi.listBoard(state.filter), joinRequestsApi.listMine()])
+    const id = ++latestFetch.current;
+    return Promise.all([postsApi.listBoard(state), joinRequestsApi.listMine()])
       .then(([board, mine]) => {
+        if (id !== latestFetch.current) return; // a newer filter change is already in flight
         setError(false);
-        setEvents(board);
-        setMyRequests(new Map(mine.filter((jr) => jr.status !== 'DECLINED' && jr.status !== 'EXPIRED').map((jr) => [jr.eventId, jr])));
+        setPosts(board);
+        setMyRequests(new Map(mine.map((jr) => [jr.postId, jr])));
         setLastLoaded(new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }));
       })
-      .catch((e) => { console.error('Board load failed', e); setError(true); });
-  }, [state.filter]);
+      .catch((e) => { if (id === latestFetch.current) { console.error('Board load failed', e); setError(true); } });
+  }, [state.filter, state.groupSize, state.whoThere, state.typeFilters, state.searchQuery, state.proximityKm, state.boardVersion]);
+
+  // Once more than MAX_AUTO_REFRESH new posts have been announced since the last deliberate load
+  // (focus, filter change, pull), the stream is closed and this flag asks the user to pull down.
+  const newPostsRef = useRef(0);
+  const [hasUnloaded, setHasUnloaded] = useState(false);
+  const resetNewPosts = () => { newPostsRef.current = 0; setHasUnloaded(false); };
 
   const load = useCallback(() => {
+    resetNewPosts();
     setLoading(true);
     fetchBoard().finally(() => setLoading(false));
   }, [fetchBoard]);
 
   const onRefresh = useCallback(() => {
+    resetNewPosts();
     setRefreshing(true);
     fetchBoard().finally(() => setRefreshing(false));
   }, [fetchBoard]);
 
-  useFocusEffect(useCallback(() => {
-    load();
-    // The stream is just a "something new was posted" signal — the actual
-    // gender/date filtering already lives server-side in listBoard.
-    return connectSse<object>('/events/stream', () => load());
-  }, [load]));
+  const onCreatedFrame = useCallback(() => {
+    newPostsRef.current += 1;
+    if (newPostsRef.current > MAX_AUTO_REFRESH) setHasUnloaded(true);
+    else fetchBoard();
+  }, [fetchBoard]);
 
-  const cards = events.map(toEventCard);
+  // Seat and status changes arrive as a small delta: patch the card in place, drop it once archived.
+  const patchPost = useCallback((d: PostDelta) => {
+    setPosts((prev) => (d.isArchived
+      ? prev.filter((p) => p.id !== d.id)
+      : prev.map((p) => (p.id === d.id ? { ...p, seatsTotal: d.seatsTotal, seatsFilled: d.seatsFilled, isFull: d.isFull } : p))));
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // The server only pushes frames for posts this board would show, so the stream takes the same filters as the list.
+  const streamPath = useMemo(
+    () => `/posts/stream${boardQueryString(state)}`,
+    [state.filter, state.groupSize, state.whoThere, state.typeFilters, state.searchQuery, state.proximityKm],
+  );
+
+  // 'created' is just a nudge to re-fetch; 'updated' is a small delta to patch in.
+  // The host's decision on one of my requests arrives as a notification; flip that card right away.
+  useFocusEffect(useCallback(() => connectSse<ApiNotification>('/notifications/stream', (n) => {
+    const { postId, decision } = n.payload;
+    if (n.kind !== 'APPROVAL' || !postId || !decision) return;
+    setMyRequests((prev) => {
+      const current = prev.get(postId);
+      return current ? new Map(prev).set(postId, { ...current, status: decision, lastReadAt: null }) : prev;
+    });
+  }), []));
+
+  // While hasUnloaded is set the stream stays closed: everything is picked up by the next pull-to-refresh.
+  useFocusEffect(useCallback(() => {
+    if (hasUnloaded) return undefined;
+    return connectSse<BoardFrame>(streamPath, (frame) => {
+      if (frame.type === 'updated') patchPost(frame);
+      else onCreatedFrame();
+    });
+  }, [streamPath, state.boardVersion, hasUnloaded, onCreatedFrame, patchPost]));
+
+  const cards = posts
+    .map(toPostCard)
+    .filter((c) => !state.hideAsked || !myRequests.has(c.id));
 
   const onTab = (key: TabKey) => {
     if (key === 'plans') navigation.navigate('MyPlans');
@@ -75,7 +136,7 @@ export default function Board({ navigation }: Props) {
     else if (key === 'me') navigation.navigate('Profile');
   };
 
-  const openCard = (c: EventCard, request?: ApiJoinRequest) => {
+  const openCard = (c: PostCard, request?: ApiJoinRequest) => {
     if (c.hostId === state.userId) navigation.navigate('PlanManage', { id: c.id });
     else if (request?.status === 'APPROVED') navigation.navigate('Chat', { id: c.id });
     else navigation.navigate('Detail', { id: c.id });
@@ -89,46 +150,39 @@ export default function Board({ navigation }: Props) {
       >
         <Header
           variant="home"
-          eyebrow={`Nearby · ${FILTER_LABELS[state.filter]}`}
+          hideTitle
           title="Companion"
           action={error ? 'Offline' : formatProximityKm(state.proximityKm)}
           actionDot={!error}
           onAction={() => navigation.navigate('SearchFilters')}
         />
 
-        {error ? (
+        {error && (
           <View style={{ paddingHorizontal: 20, paddingBottom: 14 }}>
             <OfflineBanner onRetry={load} lastLoaded={lastLoaded} />
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: 18 }}>
-            <View style={styles.featured}>
-              <View style={styles.featuredTop}>
-                <View style={styles.featuredPill}><Text style={styles.featuredPillLabel}>FEATURED HANGOUT</Text></View>
-                <Text style={styles.featuredWhen}>{FILTER_LABELS[state.filter]}</Text>
-              </View>
-              <Text style={styles.featuredTitle}>What's happening near you {state.filter === 0 ? 'tonight' : state.filter === 1 ? 'tomorrow' : 'this week'}</Text>
-              <Pressable onPress={() => navigation.navigate('Create')} style={styles.featuredPrompt}>
-                <Text style={styles.featuredPromptText}>What are you doing tonight?</Text>
-              </Pressable>
-              <View style={styles.featuredFoot}>
-                <Text style={styles.featuredNote}>And you, too — post yours in 30 seconds.</Text>
-                <Pressable onPress={() => navigation.navigate('Create')} style={styles.postBtn}>
-                  <Text style={styles.postLabel}>Post</Text>
-                </Pressable>
-              </View>
-            </View>
           </View>
         )}
 
         <View style={{ paddingTop: 16, paddingBottom: 14 }}>
-          <FilterChips scroll items={FILTER_LABELS} active={state.filter} onChange={(i) => dispatch({ type: 'SET_FILTER', filter: i as 0 | 1 | 2 })} />
+          <FilterChips
+            scroll
+            items={BOARD_CHIPS}
+            active={PLAN_TYPES.map((tp, i) => (state.typeFilters.includes(tp) ? i + 1 : -1)).filter((i) => i > 0)}
+            onChange={(i) => {
+              if (i === 0) navigation.navigate('SearchFilters');
+              else {
+                const tp = PLAN_TYPES[i - 1];
+                dispatch({ type: 'SET_TYPE_FILTERS', types: state.typeFilters.includes(tp) ? state.typeFilters.filter((x) => x !== tp) : [...state.typeFilters, tp] });
+              }
+            }}
+          />
         </View>
 
         {loading && cards.length === 0 ? (
           <ListSkeleton />
         ) : (
           <View style={{ paddingHorizontal: 18, gap: 11, opacity: error ? 0.55 : 1 }}>
+            {hasUnloaded && <Notice tone="amber">People might have posted new hangouts in your area. Pull down to refresh.</Notice>}
             {!error && cards.length === 0 && (
               <EmptyState
                 tone="amber"
@@ -145,19 +199,13 @@ export default function Board({ navigation }: Props) {
                 <HangoutCard
                   key={c.id}
                   onSurface
-                  host={c.host}
-                  hostInitials={c.hostInitials}
-                  hostPhoto={c.hostPhoto}
-                  where={c.whereWhen}
-                  flag={error ? 'Cached' : s.flag}
+                  featured={c.isFeatured}
+                  card={c}
+                  flag={error ? 'Cached' : request && joinRequestsApi.isUnread(request) ? `${s.flag} · New` : s.flag}
                   flagTone={error ? 'zinc' : s.flagTone}
-                  title={c.title}
-                  blurb={c.description}
-                  going={c.going.map((g) => ({ label: g.label, photo: g.photo }))}
-                  seatText={c.goingLine}
                   cta={error ? 'Reconnect to join' : s.cta}
                   ctaTone={error ? 'disabled' : s.ctaTone}
-                  dimmed={c.isFull && !request && c.hostId !== state.userId}
+                  dimmed={(c.isFull || c.isExpired) && !request && c.hostId !== state.userId}
                   onPress={() => navigation.navigate('Detail', { id: c.id })}
                   onPressHost={() => navigation.navigate('RequesterProfile', { userId: c.hostId })}
                   onPressCta={() => openCard(c, request)}
@@ -175,16 +223,4 @@ export default function Board({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
-  featured: { backgroundColor: colors.amber, borderRadius: 24, padding: 17 },
-  featuredTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  featuredPill: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
-  featuredPillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1, color: colors.amber },
-  featuredWhen: { fontFamily: font.bold, fontSize: 11, color: colors.amberInk },
-  featuredTitle: { fontFamily: font.extrabold, fontSize: 19, lineHeight: 24, letterSpacing: -0.6, color: colors.ink, marginTop: 13 },
-  featuredPrompt: { backgroundColor: colors.white, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 15, marginTop: 13 },
-  featuredPromptText: { fontFamily: font.semibold, fontSize: 13.5, color: colors.zinc700 },
-  featuredFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 11 },
-  featuredNote: { flex: 1, fontFamily: font.semibold, fontSize: 12, color: colors.amberInk },
-  postBtn: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 15, minHeight: 40, justifyContent: 'center' },
-  postLabel: { fontFamily: font.bold, fontSize: 12, color: colors.white },
 });

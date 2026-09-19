@@ -6,15 +6,15 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
 import { Avatar, Badge, Btn, FilterChips, ListRow, ratingText, Sheet, SheetRow, Stars, StatTiles, TabBar, StatusScrim } from '../components/widgets';
-import { VIBE_TAGS } from '../data';
-import { initialsOf } from '../data/eventDisplay';
+import { PROFILE_TAGS } from '../data';
+import { initialsOf } from '../data/postDisplay';
 import { useAppDispatch, useAppState } from '../store';
-import { eventsApi, joinRequestsApi, reviewsApi, usersApi } from '../api';
+import { postsApi, joinRequestsApi, reviewsApi, usersApi } from '../api';
 import { uploadMedia } from '../firebase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
-type PendingReview = { eventId: string; title: string };
+type PendingReview = { postId: string; title: string };
 
 export function memberSince(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -43,14 +43,14 @@ export default function Profile({ navigation }: Props) {
     reviewsApi.listReceived().then((r) => setReviewCount(r.length));
     joinRequestsApi.listMine().then((jrs) => setJoinedCount(jrs.filter((jr) => jr.status === 'APPROVED').length));
 
-    eventsApi.listHosted().then(async (hosted) => {
+    postsApi.listHosted().then(async (hosted) => {
       setHostedCount(hosted.length);
       const lastArchived = hosted
         .filter((e) => e.isArchived && e.seatsFilled > 0)
         .sort((a, b) => b.date.localeCompare(a.date))[0];
       if (!lastArchived) return;
       const mine = await reviewsApi.hasReviewed(lastArchived.id);
-      if (!mine) setPendingReview({ eventId: lastArchived.id, title: lastArchived.title });
+      if (!mine) setPendingReview({ postId: lastArchived.id, title: lastArchived.title });
     });
   }, []);
 
@@ -124,7 +124,7 @@ export default function Profile({ navigation }: Props) {
           </Pressable>
 
           {!!pendingReview && (
-            <Pressable onPress={() => navigation.navigate('Review', { planId: pendingReview.eventId })} style={styles.pending}>
+            <Pressable onPress={() => navigation.navigate('Review', { planId: pendingReview.postId })} style={styles.pending}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.pendingTitle}>A review is waiting</Text>
                 <Text style={styles.pendingSub} numberOfLines={1}>{pendingReview.title} — the setup and who showed up</Text>
@@ -145,9 +145,9 @@ export default function Profile({ navigation }: Props) {
                 <FilterChips
                   multi
                   activeTone="amber"
-                  items={VIBE_TAGS}
-                  active={VIBE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
-                  onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: VIBE_TAGS[i] })}
+                  items={PROFILE_TAGS}
+                  active={PROFILE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+                  onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: PROFILE_TAGS[i] })}
                 />
               ) : state.vibeTags.length > 0 ? (
                 <View style={styles.tags}>

@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
@@ -7,10 +8,10 @@ import { Btn, Header, ListRow, Notice, StatusScrim } from '../components/widgets
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Safety'>;
 
-function Glyph({ glyph, bg, fg }: { glyph: string; bg: string; fg: string }) {
+function Glyph({ name, bg, fg }: { name: 'alert' | 'circle-slash'; bg: string; fg: string }) {
   return (
     <View style={[styles.glyph, { backgroundColor: bg }]}>
-      <Text style={[styles.glyphText, { color: fg }]}>{glyph}</Text>
+      <Octicons name={name} size={17} color={fg} />
     </View>
   );
 }
@@ -42,14 +43,14 @@ export default function Safety({ navigation }: Props) {
           <ListRow
             title="Report someone"
             meta="A person reads it, usually within the hour."
-            leading={<Glyph glyph="!" bg={colors.rose} fg={colors.roseInk} />}
+            leading={<Glyph name="alert" bg={colors.rose} fg={colors.roseInk} />}
             chevron
             onPress={() => WebBrowser.openBrowserAsync('https://companion.app/report')}
           />
           <ListRow
             title="Block someone"
             meta="They stop seeing your hangouts. No notification."
-            leading={<Glyph glyph="⊘" bg={colors.zinc200} fg={colors.zinc700} />}
+            leading={<Glyph name="circle-slash" bg={colors.zinc200} fg={colors.zinc700} />}
             chevron
             onPress={() => WebBrowser.openBrowserAsync('https://companion.app/report')}
           />
@@ -68,5 +69,4 @@ const styles = StyleSheet.create({
   shareTitle: { fontFamily: font.extrabold, fontSize: 16, letterSpacing: -0.4, color: colors.white },
   shareBody: { fontFamily: font.regular, fontSize: 13, lineHeight: 20, color: colors.zinc400, marginTop: 6 },
   glyph: { width: 40, height: 40, minWidth: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  glyphText: { fontFamily: font.extrabold, fontSize: 16 },
 });

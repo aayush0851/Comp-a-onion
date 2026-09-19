@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query, Sse, UseGuards } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { sseStream } from '../realtime/sse.util.js';
 import { ChatService } from './chat.service.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 
-type EventMessagePayload = { eventId: string; message: object };
+type PostMessagePayload = { postId: string; message: object };
 type DmPayload = { participantIds: [string, string]; message: object };
 
 @Controller()
@@ -14,32 +14,32 @@ type DmPayload = { participantIds: [string, string]; message: object };
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    private readonly events: EventEmitter2,
+    private readonly posts: EventEmitter2,
   ) {}
 
-  @Post('events/:id/messages')
-  sendEventMessage(@CurrentUser() user: RequestUser, @Param('id') eventId: string, @Body() dto: SendMessageDto) {
-    return this.chatService.sendEventMessage(eventId, user.userId, dto.text);
+  @Post('posts/:id/messages')
+  sendPostMessage(@CurrentUser() user: RequestUser, @Param('id') postId: string, @Body() dto: SendMessageDto) {
+    return this.chatService.sendPostMessage(postId, user.userId, dto.text);
   }
 
-  @Get('events/:id/messages')
-  listEventMessages(@Param('id') eventId: string, @Query('after') after?: string) {
-    return this.chatService.listEventMessages(eventId, after);
+  @Get('posts/:id/messages')
+  listPostMessages(@Param('id') postId: string, @Query('after') after?: string) {
+    return this.chatService.listPostMessages(postId, after);
   }
 
-  @Sse('events/:id/messages/stream')
-  streamEventMessages(@Param('id') eventId: string) {
-    return sseStream<EventMessagePayload>(
-      this.events,
-      'chat.eventMessage',
-      (p) => p.eventId === eventId,
+  @Sse('posts/:id/messages/stream')
+  streamPostMessages(@Param('id') postId: string) {
+    return sseStream<PostMessagePayload>(
+      this.posts,
+      'chat.postMessage',
+      (p) => p.postId === postId,
       (p) => p.message,
     );
   }
 
-  @Get('chat/event-threads')
-  listEventThreads(@CurrentUser() user: RequestUser) {
-    return this.chatService.listEventThreads(user.userId);
+  @Get('chat/post-threads')
+  listPostThreads(@CurrentUser() user: RequestUser) {
+    return this.chatService.listPostThreads(user.userId);
   }
 
   @Post('users/:id/dm')
@@ -55,7 +55,7 @@ export class ChatController {
   @Sse('users/:id/dm/stream')
   streamDm(@CurrentUser() user: RequestUser, @Param('id') peerId: string) {
     return sseStream<DmPayload>(
-      this.events,
+      this.posts,
       'chat.dm',
       (p) => p.participantIds.includes(user.userId) && p.participantIds.includes(peerId),
       (p) => p.message,

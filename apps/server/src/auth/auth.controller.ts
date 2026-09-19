@@ -2,8 +2,8 @@ import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { GoogleLoginDto } from './dto/google-login.dto.js';
 import { AppleLoginDto } from './dto/apple-login.dto.js';
-import { JwtAuthGuard } from './jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from './current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Controller('auth')

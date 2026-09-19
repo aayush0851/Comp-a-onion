@@ -5,12 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones, ToneKey } from '../theme';
-import { BackButton, Btn, CheckDot, EmptyState, Footer, Header, ListRow, ListSkeleton, Notice, SectionLabel, UserChip, StatusScrim } from '../components/widgets';
+import { BackButton, Btn, CheckDot, EmptyState, Footer, Header, ListRow, ListSkeleton, Notice, SectionLabel, Sheet, UserChip, StatusScrim } from '../components/widgets';
 import { costModeLabel, genderRestrictionLabel } from '../data';
-import { formatEventDate, formatEventTime, initialsOf } from '../data/eventDisplay';
+import { MAP_LINK_LABEL, mapLinkOf, openMapLink } from '../data/mapLink';
+import { formatPostDate, formatPostTime, initialsOf } from '../data/postDisplay';
 import { fromApiCostMode, fromApiGenderRestriction } from '../api/types';
-import { eventsApi, joinRequestsApi, reviewsApi } from '../api';
-import type { ApiEvent, ApiJoinRequest, ApiUser } from '../api/types';
+import { postsApi, joinRequestsApi, reviewsApi } from '../api';
+import type { ApiPost, ApiJoinRequest, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlanManage'>;
 
@@ -18,22 +19,23 @@ const PERSON_TONES: ToneKey[] = ['amber', 'sky', 'mint', 'zinc'];
 
 export default function PlanManage({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [post, setPost] = useState<ApiPost | null>(null);
   const [pending, setPending] = useState<ApiJoinRequest[]>([]);
   const [reviewed, setReviewed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fetchPlan = useCallback(() => {
     setError(false);
     return Promise.all([
-      eventsApi.getEvent(route.params.id),
+      postsApi.getPost(route.params.id),
       joinRequestsApi.listForHost(route.params.id),
       reviewsApi.hasReviewed(route.params.id),
     ])
-      .then(([e, jrs, mine]) => { setEvent(e); setPending(jrs); setReviewed(!!mine); })
+      .then(([e, jrs, mine]) => { setPost(e); setPending(jrs); setReviewed(!!mine); })
       .catch((e) => { console.error('PlanManage load failed', e); setError(true); });
   }, [route.params.id]);
 
@@ -51,7 +53,7 @@ export default function PlanManage({ navigation, route }: Props) {
 
   const back = () => navigation.navigate('MyPlans');
 
-  if (error || loading || !event) {
+  if (error || loading || !post) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.white }]}>
         <Header variant="stack" title="Your hangout" onBack={back} />
@@ -75,33 +77,36 @@ export default function PlanManage({ navigation, route }: Props) {
   };
 
   const archive = async () => {
-    await eventsApi.archiveEvent(event.id);
+    setConfirmDelete(false);
+    await postsApi.archivePost(post.id);
     load();
   };
 
-  const message = (u: ApiUser) => navigation.navigate('RequesterChat', { planId: event.id, requesterId: u.id, name: u.name ?? 'Someone' });
+  const message = (u: ApiUser) => navigation.navigate('RequesterChat', { planId: post.id, requesterId: u.id, name: u.name ?? 'Someone' });
   const openProfile = (u: ApiUser) => navigation.navigate('RequesterProfile', { userId: u.id });
-  const came = event.seatsFilled;
+  const came = post.seatsFilled;
+  const waiting = pending.filter((jr) => jr.status === 'PENDING');
+  const passed = pending.filter((jr) => jr.status === 'DECLINED');
 
-  if (event.isArchived) {
+  if (post.isArchived) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.white }]}>
         <ScrollView contentContainerStyle={{ paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.ink} />}>
           <Header
             variant="stack"
-            eyebrow={`Completed · ${formatEventDate(event.date)}`}
-            title={event.title}
-            subtitle={`${event.venue ?? 'Flexible'} · ${came === 0 ? 'nobody came' : `${came} ${came === 1 ? 'person' : 'people'} came`}`}
+            eyebrow={`Completed · ${formatPostDate(post.date)}`}
+            title={post.title}
+            subtitle={`${mapLinkOf(post.venue) ? MAP_LINK_LABEL : post.venue ?? 'Flexible'} · ${came === 0 ? 'nobody came' : `${came} ${came === 1 ? 'person' : 'people'} came`}`}
             onBack={back}
           />
           <View style={styles.body}>
-            {!!event.description && <Text style={[styles.eventDescription, { marginTop: -8 }]}>{event.description}</Text>}
+            {!!post.description && <Text style={[styles.postDescription, { marginTop: -8 }]}>{post.description}</Text>}
             {came > 0 && !reviewed && (
               <View style={styles.rateCard}>
                 <Text style={styles.rateTitle}>Rate the {came === 1 ? 'one' : came} who came</Text>
                 <Text style={styles.rateBody}>Both sides unlock at the same moment. Nobody sees theirs first.</Text>
                 <View style={{ flexDirection: 'row', gap: 9, marginTop: 15 }}>
-                  <Pressable onPress={() => navigation.navigate('Review', { planId: event.id })} style={[styles.rateBtn, { flex: 1, backgroundColor: colors.amber }]}>
+                  <Pressable onPress={() => navigation.navigate('Review', { planId: post.id })} style={[styles.rateBtn, { flex: 1, backgroundColor: colors.amber }]}>
                     <Text style={[styles.rateBtnLabel, { color: colors.ink }]}>Start rating</Text>
                   </Pressable>
                   <Pressable onPress={back} style={[styles.rateBtn, { paddingHorizontal: 17, backgroundColor: colors.zinc800 }]}>
@@ -124,7 +129,7 @@ export default function PlanManage({ navigation, route }: Props) {
             )}
             {came === 0 && <Notice tone="zinc">Nobody joined this one. It happens — the next one is a fresh start.</Notice>}
             {came > 0 && <SectionLabel>Who came</SectionLabel>}
-            {event.going.map((u, i) => (
+            {post.going.map((u, i) => (
               <ListRow
                 key={u.id}
                 title={u.name ?? 'Someone'}
@@ -145,9 +150,9 @@ export default function PlanManage({ navigation, route }: Props) {
     );
   }
 
-  const approvalRequired = event.entryMode === 'APPROVE';
-  const when = `${formatEventDate(event.date)} · ${formatEventTime(event.time)}`;
-  const details = [when, event.venue || 'Venue TBD', genderRestrictionLabel(fromApiGenderRestriction(event.genderRestriction)), costModeLabel(fromApiCostMode(event.costMode))]
+  const approvalRequired = post.entryMode === 'APPROVE';
+  const when = `${formatPostDate(post.date)} · ${formatPostTime(post.time)}`;
+  const details = [when, mapLinkOf(post.venue) ? MAP_LINK_LABEL : post.venue || 'Venue TBD', genderRestrictionLabel(fromApiGenderRestriction(post.genderRestriction)), costModeLabel(fromApiCostMode(post.costMode))]
     .filter(Boolean).join(' · ');
 
   return (
@@ -158,21 +163,26 @@ export default function PlanManage({ navigation, route }: Props) {
             <BackButton onPress={back} onSurface />
             <View style={styles.queuePill}><Text style={styles.queuePillLabel}>HOST QUEUE</Text></View>
           </View>
-          <Text style={styles.filled}>{came} of {event.seatsTotal} filled</Text>
+          <Text style={styles.filled}>{came} of {post.seatsTotal} filled</Text>
         </View>
         <View style={{ paddingTop: 14, paddingHorizontal: 20 }}>
-          <Text style={styles.eventLine} numberOfLines={2}>{event.title} · {details}</Text>
-          {!!event.description && <Text style={styles.eventDescription} numberOfLines={3}>{event.description}</Text>}
+          <Text style={styles.postLine} numberOfLines={2}>{post.title} · {details}</Text>
+          {!!mapLinkOf(post.venue) && (
+            <Pressable onPress={() => openMapLink(mapLinkOf(post.venue)!)} hitSlop={6}>
+              <Text style={styles.mapLink}>{MAP_LINK_LABEL} ›</Text>
+            </Pressable>
+          )}
+          {!!post.description && <Text style={styles.postDescription} numberOfLines={3}>{post.description}</Text>}
           <Text style={styles.bigTitle}>{approvalRequired ? "Who's asking to join" : "Who's in"}</Text>
           <Text style={styles.subtitle}>
             {approvalRequired
-              ? pending.length === 0 ? 'Nobody has asked yet. Requests land here the moment they come in.' : `${pending.length} Checked ${pending.length === 1 ? 'person' : 'people'} asked to sit at your table.`
+              ? waiting.length === 0 ? 'Nobody has asked yet. Requests land here the moment they come in.' : `${waiting.length} Checked ${waiting.length === 1 ? 'person' : 'people'} asked to join your group.`
               : 'Open seats — people take one straight away, no queue.'}
           </Text>
         </View>
 
         <View style={styles.cards}>
-          {approvalRequired && pending.map((jr) => (
+          {approvalRequired && waiting.map((jr) => (
             <View key={jr.id} style={styles.card}>
               <View style={styles.cardHead}>
                 <View style={{ flex: 1 }}>
@@ -199,7 +209,7 @@ export default function PlanManage({ navigation, route }: Props) {
             </View>
           ))}
 
-          {event.going.map((u, i) => (
+          {post.going.map((u, i) => (
             <View key={u.id} style={styles.card}>
               <UserChip
                 name={u.name ?? 'Someone'}
@@ -220,25 +230,49 @@ export default function PlanManage({ navigation, route }: Props) {
             </View>
           ))}
 
-          {approvalRequired && pending.length === 0 && event.going.length === 0 && (
+          {approvalRequired && waiting.length === 0 && post.going.length === 0 && passed.length === 0 && (
             <View style={styles.card}>
               <EmptyState shape="square" tone="amber" title="Your queue is empty." body="When someone asks to join, their one line lands here. You decide — they never see a no." />
             </View>
           )}
-          {!approvalRequired && event.going.length === 0 && (
+          {passed.length > 0 && <SectionLabel>Passed</SectionLabel>}
+          {passed.map((jr) => (
+            <View key={jr.id} style={styles.card}>
+              <UserChip
+                name={jr.user?.name ?? 'Someone'}
+                initials={initialsOf(jr.user?.name ?? null)}
+                photo={jr.user?.profilePicture}
+                rating={jr.user?.aggregatedRating || undefined}
+                chevron={!!jr.user}
+                onPress={jr.user ? () => openProfile(jr.user!) : undefined}
+              />
+              {!!jr.introText && <Text style={styles.intro}>“{jr.introText}”</Text>}
+              <View style={{ marginTop: 14 }}>
+                <Btn label="Let them in after all" glyph="✓" variant="secondary" loading={deciding === jr.id} onPress={() => decide(jr.id, 'APPROVED')} />
+              </View>
+            </View>
+          ))}
+
+          {!approvalRequired && post.going.length === 0 && (
             <View style={styles.card}>
               <EmptyState tone="zinc" title="No one's in yet." body="Open seats fill up fast once people see it on the board." />
             </View>
           )}
         </View>
 
-        <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
-          <Btn label="Archive this hangout" variant="danger" onPress={archive} />
-        </View>
       </ScrollView>
       <StatusScrim color={colors.zinc100} />
       <Footer style={{ backgroundColor: colors.zinc100 }}>
-        <Btn label={`Open Group Chat (${came}/${event.seatsTotal} filled)`} onPress={() => navigation.navigate('Chat', { id: event.id })} />
+        <Btn label={`Open Group Chat (${came}/${post.seatsTotal} filled)`} onPress={() => navigation.navigate('Chat', { id: post.id })} />
+        <View style={{ marginTop: 8 }}>
+          <Btn label="Delete this hangout" variant="danger" onPress={() => setConfirmDelete(true)} />
+        </View>
+        <Sheet visible={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete this hangout?" sub="It will be closed to new joiners and moved to your completed plans.">
+          <View style={{ gap: 9, marginTop: 18 }}>
+            <Btn label="Yes, delete" variant="danger" onPress={archive} />
+            <Btn label="Cancel" variant="secondary" onPress={() => setConfirmDelete(false)} />
+          </View>
+        </Sheet>
       </Footer>
     </View>
   );
@@ -261,8 +295,9 @@ const styles = StyleSheet.create({
   queuePill: { backgroundColor: colors.amber, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   queuePillLabel: { fontFamily: font.extrabold, fontSize: 9.5, letterSpacing: 1.1, color: colors.ink },
   filled: { fontFamily: font.bold, fontSize: 11.5, color: colors.zinc500 },
-  eventLine: { fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400, marginBottom: 9 },
-  eventDescription: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.zinc500, marginBottom: 9, marginTop: -3 },
+  mapLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.amberInk, textDecorationLine: 'underline', marginBottom: 9 },
+  postLine: { fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400, marginBottom: 9 },
+  postDescription: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.zinc500, marginBottom: 9, marginTop: -3 },
   bigTitle: { fontFamily: font.extrabold, fontSize: 27, lineHeight: 32, letterSpacing: -1, color: colors.ink },
   subtitle: { fontFamily: font.regular, fontSize: 14, lineHeight: 21, color: colors.zinc500, marginTop: 8 },
   cards: { paddingTop: 18, paddingHorizontal: 16, gap: 11 },

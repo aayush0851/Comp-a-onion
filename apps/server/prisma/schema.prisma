@@ -74,7 +74,7 @@ model User {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  hostedEvents     Event[]        @relation("EventHost")
+  hostedPosts     Post[]        @relation("PostHost")
   joinRequests     JoinRequest[]
   chatMessages     ChatMessage[]
   reviewsWritten   Review[]
@@ -86,10 +86,10 @@ model User {
   @@index([latitude, longitude])
 }
 
-model Event {
+model Post {
   id                String            @id @default(uuid())
   hostId            String
-  host              User              @relation("EventHost", fields: [hostId], references: [id])
+  host              User              @relation("PostHost", fields: [hostId], references: [id])
   title             String
   description       String?
   date              DateTime          @db.Date
@@ -101,6 +101,7 @@ model Event {
   genderRestriction GenderRestriction @default(ANYONE)
   costMode          CostMode?
   isArchived        Boolean           @default(false)
+  isFeatured        Boolean           @default(false)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -114,8 +115,8 @@ model Event {
 
 model JoinRequest {
   id         String            @id @default(uuid())
-  eventId    String
-  event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId     String
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   status     JoinRequestStatus @default(PENDING)
@@ -124,28 +125,28 @@ model JoinRequest {
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
-  @@unique([eventId, userId])
-  @@index([eventId, status])
+  @@unique([postId, userId])
+  @@index([postId, status])
 }
 
 model ChatMessage {
   id           String   @id @default(uuid())
-  eventId      String?
-  event        Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  postId      String?
+  post        Post?   @relation(fields: [postId], references: [id], onDelete: Cascade)
   dmWithUserId String?
   authorId     String
   author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   text         String
   createdAt    DateTime @default(now())
 
-  @@index([eventId, createdAt])
+  @@index([postId, createdAt])
   @@index([dmWithUserId, createdAt])
 }
 
 model Review {
   id          String   @id @default(uuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  postId     String
+  post       Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
   reviewerId  String
   reviewer    User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   setupScores Json
@@ -154,7 +155,7 @@ model Review {
 
   personReviews PersonReview[]
 
-  @@unique([eventId, reviewerId])
+  @@unique([postId, reviewerId])
 }
 
 model PersonReview {

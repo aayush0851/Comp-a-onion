@@ -11,8 +11,8 @@ jobs:
   archive:
     runs-on: ubuntu-latest
     steps:
-      - name: Call archive-expired-events endpoint
+      - name: Call archive-expired-posts endpoint
         run: |
           curl --fail --show-error --silent \
-            -X POST "${{ secrets.SERVER_BASE_URL }}/internal/jobs/archive-expired-events" \
+            -X POST "${{ secrets.SERVER_BASE_URL }}/internal/jobs/archive-expired-posts" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

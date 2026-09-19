@@ -18,7 +18,11 @@ export const SELFIE_POSES = [
   { key: 'right', label: 'Turn slightly to your right', body: 'Last one — same idea, the other way.' },
 ] as const;
 
-export const FILTER_LABELS = ['Tonight', 'Tomorrow', 'This week'];
+export const FILTER_LABELS = ['Tonight', 'Tomorrow', 'This week', 'Any'];
+
+export const GROUP_SIZE_LABELS = ['Duo', 'Group', 'Any size'];
+
+export const WHO_THERE_LABELS = ['Women only', 'Anyone', 'Checked hosts'];
 
 export const SIGNUP_STEPS = [
   { n: 1, t: "Post what you're doing tonight" },
@@ -26,14 +30,16 @@ export const SIGNUP_STEPS = [
   { n: 3, t: 'You pick who sits with you' },
 ];
 
-export const VIBE_TAGS = [
-  'Low key', 'Talkers', 'Loud', 'Quiet', 'Active', 'First-timers welcome', 'No phones', 'Silly',
+export const PLAN_TYPES = ['Meetup', 'Coffee', 'Movie', 'Walk n talk', 'Food', 'Drinks', 'Games', 'Something else'];
+
+export const PROFILE_TAGS = [
+  'Foodie', 'Traveller', 'Sporty', 'Gym freak', 'Extrovert', 'Introvert', 'Night owl', 'Creative',
 ];
 
 export const SETUP_AXES = [
   { key: 'venue', label: 'The venue', desc: 'Right place for what this was?' },
   { key: 'timing', label: 'The timing', desc: 'Long enough, late enough, not too much.' },
-  { key: 'size', label: 'The group size', desc: 'Duo, table, or too many voices.' },
+  { key: 'size', label: 'The group size', desc: 'Duo, group, or too many voices.' },
   { key: 'overall', label: 'How it came together', desc: 'Turnout, timing, vibe — overall.' },
 ];
 

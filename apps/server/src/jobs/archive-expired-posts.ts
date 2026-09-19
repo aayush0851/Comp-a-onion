@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { archiveExpiredEvents } from './archive-expired.js';
+import { archiveExpiredPosts } from './archive-expired.js';
 
 const prisma = new PrismaClient();
 
-archiveExpiredEvents(prisma)
-  .then((count) => console.log(count === 0 ? 'No expired plans to archive.' : `Archived ${count} expired plan(s).`))
+archiveExpiredPosts(prisma)
+  .then((ids) => console.log(ids.length === 0 ? 'No expired plans to archive.' : `Archived ${ids.length} expired plan(s).`))
   .catch((e) => {
     console.error(e);
     process.exitCode = 1;

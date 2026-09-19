@@ -5,11 +5,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, ToneKey } from '../theme';
 import { EmptyState, FilterChips, Header, ListSkeleton, RatingSummary, ratingText, ReviewCard, StatusScrim } from '../components/widgets';
-import { initialsOf } from '../data/eventDisplay';
+import { initialsOf } from '../data/postDisplay';
 import { shortStamp } from '../data';
 import { useAppState } from '../store';
 import { reviewsApi, usersApi } from '../api';
 import type { ApiPersonReview } from '../api/reviews';
+import { isDefined } from '@companion/common';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyReviews'>;
 
@@ -38,7 +39,7 @@ export default function MyReviews({ navigation }: Props) {
     fetchReviews().finally(() => setRefreshing(false));
   }, [fetchReviews]);
 
-  const rated = received.filter((r) => r.rating != null);
+  const rated = received.filter((r) => isDefined(r.rating));
   const dist = [5, 4, 3, 2, 1].map((star) => (rated.length ? Math.round((rated.filter((r) => r.rating === star).length / rated.length) * 100) : 0));
   const traits = useMemo(() => {
     const counts = new Map<string, number>();
@@ -87,10 +88,10 @@ export default function MyReviews({ navigation }: Props) {
                 return (
                   <ReviewCard
                     key={r.id}
-                    plan={r.review.event.title}
+                    plan={r.review.post.title}
                     date={shortStamp(r.review.createdAt)}
                     rating={r.rating ?? 0}
-                    showStars={r.rating != null}
+                    showStars={isDefined(r.rating)}
                     body={r.note}
                     reviewer={`${reviewer.name ?? 'Someone'}${reviewer.aggregatedRating ? ` · ${ratingText(reviewer.aggregatedRating)} rating` : ''}`}
                     initials={initialsOf(reviewer.name)}

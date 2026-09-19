@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones, text } from '../theme';
 import { Avatar, FieldLabel, FilterChips, Header, TextField, StatusScrim } from '../components/widgets';
-import { VIBE_TAGS } from '../data';
-import { initialsOf } from '../data/eventDisplay';
+import { PROFILE_TAGS } from '../data';
+import { initialsOf } from '../data/postDisplay';
 import { useAppDispatch, useAppState } from '../store';
 import { usersApi } from '../api';
 import { uploadMedia } from '../firebase';
@@ -79,9 +80,9 @@ export default function EditProfile({ navigation }: Props) {
               <FilterChips
                 multi
                 activeTone="amber"
-                items={VIBE_TAGS}
-                active={VIBE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
-                onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: VIBE_TAGS[i] })}
+                items={PROFILE_TAGS}
+                active={PROFILE_TAGS.map((t, i) => (state.vibeTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+                onChange={(i) => dispatch({ type: 'TOGGLE_VIBE_TAG', tag: PROFILE_TAGS[i] })}
               />
             ) : (
               <View style={styles.tags}>
@@ -115,7 +116,7 @@ export default function EditProfile({ navigation }: Props) {
                 <View key={i} style={[styles.tile, { backgroundColor: [colors.amber, seatTones[0][0], seatTones[2][0]][i % 3] }]}>
                   {h.type === 'image' && <Image source={{ uri: h.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
                   <Pressable hitSlop={6} onPress={() => dispatch({ type: 'REMOVE_HIGHLIGHT', index: i })} style={styles.remove}>
-                    <Text style={styles.removeGlyph}>×</Text>
+                    <Octicons name="x" size={12} color={colors.amber} />
                   </Pressable>
                 </View>
               ))}
@@ -153,6 +154,4 @@ const styles = StyleSheet.create({
   tile: { width: '23%', aspectRatio: 3 / 4, borderRadius: 14, overflow: 'hidden' },
   addTile: { backgroundColor: colors.zinc100, alignItems: 'center', justifyContent: 'center' },
   addGlyph: { fontFamily: font.bold, fontSize: 18, color: colors.zinc400 },
-  remove: { position: 'absolute', right: 4, top: 4, width: 20, height: 20, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  removeGlyph: { fontFamily: font.bold, fontSize: 11, lineHeight: 13, color: colors.amber },
-});
+  remove: { position: 'absolute', right: 4, top: 4, width: 20, height: 20, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },});

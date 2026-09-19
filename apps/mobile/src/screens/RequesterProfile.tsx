@@ -6,7 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones, text } from '../theme';
 import { Avatar, BackButton, Badge, Btn, EmptyState, Footer, Header, ListSkeleton, ratingText, StatTiles, StatusScrim } from '../components/widgets';
-import { initialsOf } from '../data/eventDisplay';
+import { initialsOf } from '../data/postDisplay';
 import { useAppState } from '../store';
 import { usersApi } from '../api';
 import type { ApiUser } from '../api/types';

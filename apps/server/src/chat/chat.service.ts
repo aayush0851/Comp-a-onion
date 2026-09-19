@@ -9,56 +9,56 @@ const WITH_AUTHOR = { include: { author: { select: PUBLIC_USER_SELECT } } };
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventEmitter2,
+    private readonly posts: EventEmitter2,
   ) {}
 
-  async sendEventMessage(eventId: string, authorId: string, text: string) {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
-    if (!event) throw new NotFoundException('Event not found');
+  async sendPostMessage(postId: string, authorId: string, text: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new NotFoundException('Post not found');
 
-    if (event.hostId !== authorId) {
+    if (post.hostId !== authorId) {
       const approved = await this.prisma.joinRequest.findUnique({
-        where: { eventId_userId: { eventId, userId: authorId } },
+        where: { postId_userId: { postId, userId: authorId } },
       });
       if (!approved || approved.status !== 'APPROVED') {
         throw new ForbiddenException('Only the host and approved attendees can post here');
       }
     }
 
-    const message = await this.prisma.chatMessage.create({ data: { eventId, authorId, text }, ...WITH_AUTHOR });
-    this.events.emit('chat.eventMessage', { eventId, message });
+    const message = await this.prisma.chatMessage.create({ data: { postId, authorId, text }, ...WITH_AUTHOR });
+    this.posts.emit('chat.postMessage', { postId, message });
     return message;
   }
 
-  listEventMessages(eventId: string, after?: string) {
+  listPostMessages(postId: string, after?: string) {
     return this.prisma.chatMessage.findMany({
-      where: { eventId, createdAt: after ? { gt: new Date(after) } : undefined },
+      where: { postId, createdAt: after ? { gt: new Date(after) } : undefined },
       orderBy: { createdAt: 'asc' },
       take: 100,
       ...WITH_AUTHOR,
     });
   }
 
-  // "My" event chat threads: events I host or was approved into, minus
+  // "My" post chat threads: posts I host or was approved into, minus
   // archived ones — a chat has no reason to still show once its plan is over.
-  async listEventThreads(userId: string) {
-    const [hostedEvents, joinedEvents] = await Promise.all([
-      this.prisma.event.findMany({ where: { hostId: userId, isArchived: false }, select: { id: true, title: true } }),
-      this.prisma.event.findMany({
+  async listPostThreads(userId: string) {
+    const [hostedPosts, joinedPosts] = await Promise.all([
+      this.prisma.post.findMany({ where: { hostId: userId, isArchived: false }, select: { id: true, title: true } }),
+      this.prisma.post.findMany({
         where: { isArchived: false, joinRequests: { some: { userId, status: 'APPROVED' } } },
         select: { id: true, title: true },
       }),
     ]);
-    const eventsById = new Map([...hostedEvents, ...joinedEvents].map((e) => [e.id, e]));
+    const postsById = new Map([...hostedPosts, ...joinedPosts].map((e) => [e.id, e]));
 
     const threads = await Promise.all(
-      [...eventsById.values()].map(async (e) => {
+      [...postsById.values()].map(async (e) => {
         const lastMessage = await this.prisma.chatMessage.findFirst({
-          where: { eventId: e.id },
+          where: { postId: e.id },
           orderBy: { createdAt: 'desc' },
           ...WITH_AUTHOR,
         });
-        return { eventId: e.id, title: e.title, lastMessage };
+        return { postId: e.id, title: e.title, lastMessage };
       }),
     );
 
@@ -70,14 +70,14 @@ export class ChatService {
       data: { authorId: fromUserId, dmWithUserId: toUserId, text },
       ...WITH_AUTHOR,
     });
-    this.events.emit('chat.dm', { participantIds: [fromUserId, toUserId], message });
+    this.posts.emit('chat.dm', { participantIds: [fromUserId, toUserId], message });
     return message;
   }
 
   listDmThread(userId: string, peerId: string) {
     return this.prisma.chatMessage.findMany({
       where: {
-        eventId: null,
+        postId: null,
         OR: [
           { authorId: userId, dmWithUserId: peerId },
           { authorId: peerId, dmWithUserId: userId },
@@ -92,7 +92,7 @@ export class ChatService {
   // dmWithUserId, so the thread list is derived by taking the newest message per peer.
   async listDmThreads(userId: string) {
     const messages = await this.prisma.chatMessage.findMany({
-      where: { eventId: null, OR: [{ authorId: userId }, { dmWithUserId: userId }] },
+      where: { postId: null, OR: [{ authorId: userId }, { dmWithUserId: userId }] },
       orderBy: { createdAt: 'desc' },
       ...WITH_AUTHOR,
     });

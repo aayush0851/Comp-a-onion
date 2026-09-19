@@ -10,7 +10,7 @@
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
     { "key": "jwt", "value": "" },
-    { "key": "eventId", "value": "" },
+    { "key": "postId", "value": "" },
     { "key": "userId", "value": "" },
     { "key": "joinRequestId", "value": "" },
     { "key": "personReviewId", "value": "" },
@@ -78,10 +78,10 @@
       ]
     },
     {
-      "name": "Events",
+      "name": "Posts",
       "item": [
         {
-          "name": "Create Event",
+          "name": "Create Post",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -89,31 +89,31 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"\",\n  \"date\": \"2026-09-20\",\n  \"time\": \"\",\n  \"venue\": \"\",\n  \"entryMode\": \"OPEN\",\n  \"seatsTotal\": 10,\n  \"tags\": [],\n  \"genderRestriction\": \"ANYONE\",\n  \"costMode\": \"HOST\"\n}"
             },
-            "url": "{{baseUrl}}/events"
+            "url": "{{baseUrl}}/posts"
           }
         },
         {
-          "name": "Get Event Board",
+          "name": "Get Post Board",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/events?filter=0",
+              "raw": "{{baseUrl}}/posts?filter=0",
               "host": ["{{baseUrl}}"],
-              "path": ["events"],
+              "path": ["posts"],
               "query": [{ "key": "filter", "value": "0" }]
             }
           }
         },
         {
-          "name": "Get My Hosted Events",
-          "request": { "method": "GET", "url": "{{baseUrl}}/events/mine/hosted" }
+          "name": "Get My Hosted Posts",
+          "request": { "method": "GET", "url": "{{baseUrl}}/posts/mine/hosted" }
         },
         {
-          "name": "Get Event by ID",
-          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}" }
+          "name": "Get Post by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/posts/{{postId}}" }
         },
         {
-          "name": "Update Event",
+          "name": "Update Post",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -121,12 +121,12 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"\",\n  \"time\": \"\",\n  \"venue\": \"\",\n  \"entryMode\": \"OPEN\",\n  \"seatsTotal\": 10,\n  \"tags\": [],\n  \"genderRestriction\": \"ANYONE\",\n  \"costMode\": \"HOST\"\n}"
             },
-            "url": "{{baseUrl}}/events/{{eventId}}"
+            "url": "{{baseUrl}}/posts/{{postId}}"
           }
         },
         {
-          "name": "Archive Event",
-          "request": { "method": "POST", "url": "{{baseUrl}}/events/{{eventId}}/archive" }
+          "name": "Archive Post",
+          "request": { "method": "POST", "url": "{{baseUrl}}/posts/{{postId}}/archive" }
         }
       ]
     },
@@ -139,12 +139,12 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"introText\": \"\"\n}" },
-            "url": "{{baseUrl}}/events/{{eventId}}/join-requests"
+            "url": "{{baseUrl}}/posts/{{postId}}/join-requests"
           }
         },
         {
-          "name": "List Join Requests for Event (Host)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}/join-requests" }
+          "name": "List Join Requests for Post (Host)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/posts/{{postId}}/join-requests" }
         },
         {
           "name": "List My Join Requests",
@@ -169,22 +169,22 @@
       "name": "Chat",
       "item": [
         {
-          "name": "Send Event Message",
+          "name": "Send Post Message",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"text\": \"\"\n}" },
-            "url": "{{baseUrl}}/events/{{eventId}}/messages"
+            "url": "{{baseUrl}}/posts/{{postId}}/messages"
           }
         },
         {
-          "name": "List Event Messages",
+          "name": "List Post Messages",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/events/{{eventId}}/messages?after=",
+              "raw": "{{baseUrl}}/posts/{{postId}}/messages?after=",
               "host": ["{{baseUrl}}"],
-              "path": ["events", "{{eventId}}", "messages"],
+              "path": ["posts", "{{postId}}", "messages"],
               "query": [{ "key": "after", "value": "" }]
             }
           }
@@ -216,12 +216,12 @@
               "mode": "raw",
               "raw": "{\n  \"setupScores\": {},\n  \"setupTags\": [],\n  \"personReviews\": [\n    {\n      \"revieweeId\": \"\",\n      \"tags\": [],\n      \"rating\": 5,\n      \"note\": \"\",\n      \"meetAgain\": true,\n      \"flagged\": false\n    }\n  ]\n}"
             },
-            "url": "{{baseUrl}}/events/{{eventId}}/reviews"
+            "url": "{{baseUrl}}/posts/{{postId}}/reviews"
           }
         },
         {
-          "name": "Check If I Reviewed Event",
-          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}/reviews/mine" }
+          "name": "Check If I Reviewed Post",
+          "request": { "method": "GET", "url": "{{baseUrl}}/posts/{{postId}}/reviews/mine" }
         },
         {
           "name": "List Reviews I Received",

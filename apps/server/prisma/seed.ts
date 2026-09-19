@@ -57,20 +57,20 @@ function timeOf(hhmm: string): Date {
   return new Date(`1970-01-01T${hhmm}:00.000Z`);
 }
 
-async function joinAsApproved(eventId: string, userId: string) {
+async function joinAsApproved(postId: string, userId: string) {
   await prisma.joinRequest.upsert({
-    where: { eventId_userId: { eventId, userId } },
+    where: { postId_userId: { postId, userId } },
     update: { status: 'APPROVED' },
-    create: { eventId, userId, status: 'APPROVED' },
+    create: { postId, userId, status: 'APPROVED' },
   });
 }
 
-async function requestToJoin(eventId: string, userId: string, introText: string) {
+async function requestToJoin(postId: string, userId: string, introText: string) {
   // Seed fixtures aren't cross-consistent (a person can appear as both
   // "already going" on one mock screen and "pending" on another) — skip
-  // silently rather than fight the eventId+userId uniqueness constraint.
+  // silently rather than fight the postId+userId uniqueness constraint.
   try {
-    await prisma.joinRequest.create({ data: { eventId, userId, introText, status: 'PENDING' } });
+    await prisma.joinRequest.create({ data: { postId, userId, introText, status: 'PENDING' } });
   } catch (e) {
     if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
   }
@@ -89,8 +89,8 @@ async function main() {
   const sam = await upsertPerson('sam');
   const jamie = await upsertPerson('jamie');
 
-  // --- Events (from data/activities.ts) ---
-  const ramen = await prisma.event.create({
+  // --- Posts (from data/activities.ts) ---
+  const ramen = await prisma.post.create({
     data: {
       hostId: priya.id,
       title: 'Ramen, then walk it off',
@@ -105,7 +105,7 @@ async function main() {
     },
   });
 
-  const chess = await prisma.event.create({
+  const chess = await prisma.post.create({
     data: {
       hostId: marcus.id,
       title: 'Chess and a bad coffee',
@@ -120,7 +120,7 @@ async function main() {
     },
   });
 
-  const quiz = await prisma.event.create({
+  const quiz = await prisma.post.create({
     data: {
       hostId: sasha.id,
       title: 'Pub quiz, need a fourth',
@@ -134,7 +134,7 @@ async function main() {
     },
   });
 
-  const run = await prisma.event.create({
+  const run = await prisma.post.create({
     data: {
       hostId: tobi.id,
       title: 'Sunrise run, slow pace',
@@ -170,27 +170,27 @@ async function main() {
   await requestToJoin(ramen.id, jordan.id, 'Free after 7, sounds fun.');
   await requestToJoin(ramen.id, sam.id, "First time trying this — I'm in.");
 
-  // --- Chat (from data/chat.ts, on the ramen event) ---
+  // --- Chat (from data/chat.ts, on the ramen post) ---
   await prisma.chatMessage.createMany({
     data: [
       {
-        eventId: ramen.id,
+        postId: ramen.id,
         authorId: priya.id,
         text: 'Three of us so far. I’ll be the one reading a paperback so you can find me.',
       },
       {
-        eventId: ramen.id,
+        postId: ramen.id,
         authorId: sasha.id,
         text: 'Marufuku queue on a Tuesday is genuinely 40 minutes. Iza is a walk-in.',
       },
-      { eventId: ramen.id, authorId: you.id, text: 'Either works — coming from work so 19:30 is tight.' },
-      { eventId: ramen.id, authorId: priya.id, text: 'Same three rules, and let’s stop discussing broth.' },
+      { postId: ramen.id, authorId: you.id, text: 'Either works — coming from work so 19:30 is tight.' },
+      { postId: ramen.id, authorId: priya.id, text: 'Same three rules, and let’s stop discussing broth.' },
     ],
   });
 
   // --- Reviews received by "you" (from data/reviews.ts) ---
   const rv1 = await prisma.review.create({
-    data: { eventId: ramen.id, reviewerId: maya.id, setupScores: {}, setupTags: [] },
+    data: { postId: ramen.id, reviewerId: maya.id, setupScores: {}, setupTags: [] },
   });
   await prisma.personReview.create({
     data: {
@@ -204,7 +204,7 @@ async function main() {
   });
 
   const rv2 = await prisma.review.create({
-    data: { eventId: ramen.id, reviewerId: sasha.id, setupScores: {}, setupTags: [] },
+    data: { postId: ramen.id, reviewerId: sasha.id, setupScores: {}, setupTags: [] },
   });
   await prisma.personReview.create({
     data: {
@@ -218,7 +218,7 @@ async function main() {
   });
 
   const rv3 = await prisma.review.create({
-    data: { eventId: chess.id, reviewerId: jamie.id, setupScores: {}, setupTags: [] },
+    data: { postId: chess.id, reviewerId: jamie.id, setupScores: {}, setupTags: [] },
   });
   await prisma.personReview.create({
     data: {

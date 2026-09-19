@@ -62,6 +62,10 @@ export const seatTones: readonly (readonly [string, string])[] = [
 
 export const radius = { card: 24, row: 20, box: 18, field: 16, pill: 999, sheet: 28 };
 
+// Plus Jakarta Sans reserves far more room above its letters (win ascent 1296 vs descent 356),
+// so a label centered in a pill or button renders ~0.1em low. Lift it by that much.
+export const lift = (fontSize: number): TextStyle => ({ transform: [{ translateY: -fontSize * 0.1 }] });
+
 export const text: Record<string, TextStyle> = {
   bigTitle: { fontFamily: font.extrabold, fontSize: 27, lineHeight: 32, letterSpacing: -1, color: colors.ink },
   subtitle: { fontFamily: font.regular, fontSize: 14, lineHeight: 21, color: colors.zinc500 },

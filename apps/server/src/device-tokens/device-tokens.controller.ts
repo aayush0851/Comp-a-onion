@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { DeviceTokensService } from './device-tokens.service.js';
 import { RegisterTokenDto } from './dto/register-token.dto.js';
 

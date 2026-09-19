@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
+import { isDefined } from '@companion/common';
 
 const TOKEN_KEY = 'companion:token';
 
@@ -50,7 +51,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
 export const get = <T>(path: string) => apiFetch<T>(path);
 export const post = <T>(path: string, body?: unknown) =>
-  apiFetch<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined });
+  apiFetch<T>(path, { method: 'POST', body: isDefined(body) ? JSON.stringify(body) : undefined });
 export const patch = <T>(path: string, body?: unknown) =>
-  apiFetch<T>(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined });
+  apiFetch<T>(path, { method: 'PATCH', body: isDefined(body) ? JSON.stringify(body) : undefined });
 export const del = <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' });

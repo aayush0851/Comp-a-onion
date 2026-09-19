@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
@@ -43,7 +44,7 @@ export default function ProfilePhoto({ navigation }: Props) {
             <Image source={{ uri: state.profilePhoto }} style={styles.image} />
           ) : (
             <>
-              <View style={styles.plus}><Text style={styles.plusLabel}>+</Text></View>
+              <View style={styles.plus}><Octicons name="plus" size={22} color={colors.amber} /></View>
               <Text style={styles.hint}>main profile photo · 4:5</Text>
             </>
           )}
@@ -71,6 +72,5 @@ const styles = StyleSheet.create({
   frame: { height: 300, borderRadius: 24, backgroundColor: colors.zinc100, alignItems: 'center', justifyContent: 'center', gap: 12, overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
   plus: { width: 48, height: 48, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  plusLabel: { fontFamily: font.bold, fontSize: 21, color: colors.amber },
   hint: { fontFamily: font.mono, fontSize: 11, letterSpacing: 0.4, color: colors.zinc400 },
 });

@@ -4,11 +4,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { loginAsNewGoogleUser } from './utils/login.js';
 
-vi.mock('../src/auth/google-verifier.js', () => ({
+vi.mock('../src/auth/verifiers/google-verifier.js', () => ({
   verifyGoogleAccessToken: vi.fn(async (token: string) => ({ email: token.replace('fake-token-for-', '') })),
 }));
 
-describe('Events (e2e)', () => {
+describe('Posts (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -22,51 +22,51 @@ describe('Events (e2e)', () => {
     await app.close();
   });
 
-  it('creates an event and shows it on the board with computed seatsFilled', async () => {
-    const { token } = await loginAsNewGoogleUser(app, `events-host-${Date.now()}@example.com`);
+  it('creates an post and shows it on the board with computed seatsFilled', async () => {
+    const { token } = await loginAsNewGoogleUser(app, `posts-host-${Date.now()}@example.com`);
 
     const create = await request(app.getHttpServer())
-      .post('/events')
+      .post('/posts')
       .set('Authorization', `Bearer ${token}`)
-      .send({ title: 'Test board event', date: new Date().toISOString(), seatsTotal: 4 })
+      .send({ title: 'Test board post', date: new Date().toISOString(), seatsTotal: 4 })
       .expect(201);
 
-    const eventId = create.body.id;
+    const postId = create.body.id;
 
     const board = await request(app.getHttpServer())
-      .get('/events')
+      .get('/posts')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    const found = board.body.find((e: { id: string }) => e.id === eventId);
+    const found = board.body.find((e: { id: string }) => e.id === postId);
     expect(found).toBeTruthy();
     expect(found.seatsFilled).toBe(0);
     expect(found.going).toEqual([]);
 
     const hosted = await request(app.getHttpServer())
-      .get('/events/mine/hosted')
+      .get('/posts/mine/hosted')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(hosted.body.some((e: { id: string }) => e.id === eventId)).toBe(true);
+    expect(hosted.body.some((e: { id: string }) => e.id === postId)).toBe(true);
   });
 
-  it('lets only the host archive an event', async () => {
-    const { token: hostToken } = await loginAsNewGoogleUser(app, `events-host2-${Date.now()}@example.com`);
-    const { token: strangerToken } = await loginAsNewGoogleUser(app, `events-stranger-${Date.now()}@example.com`);
+  it('lets only the host archive an post', async () => {
+    const { token: hostToken } = await loginAsNewGoogleUser(app, `posts-host2-${Date.now()}@example.com`);
+    const { token: strangerToken } = await loginAsNewGoogleUser(app, `posts-stranger-${Date.now()}@example.com`);
 
     const create = await request(app.getHttpServer())
-      .post('/events')
+      .post('/posts')
       .set('Authorization', `Bearer ${hostToken}`)
       .send({ title: 'Archive me', date: new Date().toISOString(), seatsTotal: 2 });
-    const eventId = create.body.id;
+    const postId = create.body.id;
 
     await request(app.getHttpServer())
-      .post(`/events/${eventId}/archive`)
+      .post(`/posts/${postId}/archive`)
       .set('Authorization', `Bearer ${strangerToken}`)
       .expect(403);
 
     await request(app.getHttpServer())
-      .post(`/events/${eventId}/archive`)
+      .post(`/posts/${postId}/archive`)
       .set('Authorization', `Bearer ${hostToken}`)
       .expect(201);
   });

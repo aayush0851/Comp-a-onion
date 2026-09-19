@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, font } from '../../theme';
+import { colors, font, lift } from '../../theme';
 
 export type BadgeTone = 'sky' | 'amber' | 'mint' | 'zinc' | 'ink' | 'solid';
 
@@ -34,8 +34,8 @@ export function Pill({ label, bg, fg, upper }: { label: string; bg: string; fg: 
 const styles = StyleSheet.create({
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   glyph: { fontSize: 10.5, lineHeight: 13 },
-  label: { fontFamily: font.bold, fontSize: 11.5, letterSpacing: -0.1 },
+  label: { fontFamily: font.bold, fontSize: 11.5, letterSpacing: -0.1, ...lift(11.5) },
   pill: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, alignSelf: 'flex-start' },
-  pillLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: -0.1 },
-  pillUpper: { fontFamily: font.extrabold, fontSize: 10.5, textTransform: 'uppercase' },
+  pillLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: -0.1, ...lift(10.5) },
+  pillUpper: { fontFamily: font.extrabold, fontSize: 10.5, textTransform: 'uppercase', ...lift(10.5) },
 });

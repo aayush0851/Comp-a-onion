@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
-import { colors, font } from '../../theme';
+import { colors, font, lift } from '../../theme';
 
 export type BtnVariant = 'primary' | 'amber' | 'secondary' | 'outlined' | 'ghost' | 'danger' | 'disabled';
 
@@ -53,6 +53,6 @@ export function Btn({
 const styles = StyleSheet.create({
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 54, paddingHorizontal: 22, borderRadius: 999, borderWidth: 1.5 },
   small: { minHeight: 44, paddingHorizontal: 17 },
-  label: { fontFamily: font.bold, fontSize: 15, letterSpacing: -0.1 },
-  smallLabel: { fontSize: 12.5 },
+  label: { fontFamily: font.bold, fontSize: 15, letterSpacing: -0.1, ...lift(15) },
+  smallLabel: { fontSize: 12.5, ...lift(12.5) },
 });

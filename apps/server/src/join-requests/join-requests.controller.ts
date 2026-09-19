@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { JoinRequestsService } from './join-requests.service.js';
 import { CreateJoinRequestDto } from './dto/create-join-request.dto.js';
 import { DecideJoinRequestDto } from './dto/decide-join-request.dto.js';
@@ -10,14 +10,14 @@ import { DecideJoinRequestDto } from './dto/decide-join-request.dto.js';
 export class JoinRequestsController {
   constructor(private readonly joinRequestsService: JoinRequestsService) {}
 
-  @Post('events/:eventId/join-requests')
-  create(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string, @Body() dto: CreateJoinRequestDto) {
-    return this.joinRequestsService.create(eventId, user.userId, dto.introText);
+  @Post('posts/:postId/join-requests')
+  create(@CurrentUser() user: RequestUser, @Param('postId') postId: string, @Body() dto: CreateJoinRequestDto) {
+    return this.joinRequestsService.create(postId, user.userId, dto.introText);
   }
 
-  @Get('events/:eventId/join-requests')
-  listForHost(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string) {
-    return this.joinRequestsService.listForHost(user.userId, eventId);
+  @Get('posts/:postId/join-requests')
+  listForHost(@CurrentUser() user: RequestUser, @Param('postId') postId: string) {
+    return this.joinRequestsService.listForHost(user.userId, postId);
   }
 
   @Get('users/me/join-requests')

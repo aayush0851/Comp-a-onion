@@ -6,10 +6,10 @@ import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
 import { Avatar, Btn, FieldLabel, FilterChips, Footer, Header, ListSkeleton, Notice, ToggleRow, StatusScrim } from '../components/widgets';
 import { PEOPLE_TAGS, SETUP_AXES, SETUP_TAGS, SETUP_WORDS } from '../data';
-import { initialsOf } from '../data/eventDisplay';
+import { initialsOf } from '../data/postDisplay';
 import { useAppState, useAppDispatch } from '../store';
-import { eventsApi, reviewsApi, ApiError } from '../api';
-import type { ApiEvent, ApiUser } from '../api/types';
+import { postsApi, reviewsApi, ApiError } from '../api';
+import type { ApiPost, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
@@ -22,7 +22,7 @@ export default function Review({ navigation, route }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { planId } = route.params;
-  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [post, setPost] = useState<ApiPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -31,11 +31,11 @@ export default function Review({ navigation, route }: Props) {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      eventsApi.getEvent(planId).then(setEvent).finally(() => setLoading(false));
+      postsApi.getPost(planId).then(setPost).finally(() => setLoading(false));
     }, [planId]),
   );
 
-  if (loading || !event) {
+  if (loading || !post) {
     return (
       <View style={styles.screen}>
         <Header variant="stack" onBack={() => navigation.goBack()} />
@@ -44,7 +44,7 @@ export default function Review({ navigation, route }: Props) {
     );
   }
 
-  const attendees: ApiUser[] = event.going.filter((u) => u.id !== state.userId);
+  const attendees: ApiUser[] = post.going.filter((u) => u.id !== state.userId);
   const pages: Page[] = [
     ...attendees.flatMap((person): Page[] => [{ kind: 'rate', person }, { kind: 'note', person }]),
     { kind: 'setup' },

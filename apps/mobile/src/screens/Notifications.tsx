@@ -29,19 +29,19 @@ function isToday(iso: string): boolean {
 }
 
 function describe(n: ApiNotification): ReactNode {
-  const event = n.eventTitle ?? 'a hangout';
+  const post = n.postTitle ?? 'a hangout';
   const actor = n.actorName ?? 'Someone';
   switch (n.kind) {
     case 'JOIN_REQUEST':
-      return <><Text style={styles.strong}>{actor}</Text> asked to join <Text style={styles.strong}>{event}</Text></>;
+      return <><Text style={styles.strong}>{actor}</Text> asked to join <Text style={styles.strong}>{post}</Text></>;
     case 'APPROVAL':
       return n.payload.decision === 'APPROVED'
-        ? <>You're in — <Text style={styles.strong}>{event}</Text></>
-        : <>Not this time — <Text style={styles.strong}>{event}</Text></>;
+        ? <>You're in — <Text style={styles.strong}>{post}</Text></>
+        : <>Not this time — <Text style={styles.strong}>{post}</Text></>;
     case 'RATING_RECEIVED':
       return <><Text style={styles.strong}>{actor}</Text> rated you</>;
     case 'REVIEW_UNLOCKED':
-      return <>Your ratings for <Text style={styles.strong}>{event}</Text> are unlocked</>;
+      return <>Your ratings for <Text style={styles.strong}>{post}</Text> are unlocked</>;
     default:
       return 'New activity';
   }
@@ -76,10 +76,10 @@ export default function Notifications({ navigation }: Props) {
 
   const openNotification = async (n: ApiNotification) => {
     if (!n.read) notificationsApi.markNotificationRead(n.id).catch(() => {});
-    if (n.kind === 'JOIN_REQUEST' && n.payload.eventId) navigation.navigate('PlanManage', { id: n.payload.eventId });
-    else if (n.kind === 'APPROVAL' && n.payload.eventId) {
+    if (n.kind === 'JOIN_REQUEST' && n.payload.postId) navigation.navigate('PlanManage', { id: n.payload.postId });
+    else if (n.kind === 'APPROVAL' && n.payload.postId) {
       if (n.payload.joinRequestId) joinRequestsApi.markRead(n.payload.joinRequestId).catch(() => {});
-      navigation.navigate('Detail', { id: n.payload.eventId });
+      navigation.navigate('Detail', { id: n.payload.postId });
     } else if (n.kind === 'RATING_RECEIVED' || n.kind === 'REVIEW_UNLOCKED') navigation.navigate('MyReviews');
   };
 

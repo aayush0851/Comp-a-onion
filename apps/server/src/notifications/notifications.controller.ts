@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Patch, Sse, UseGuards } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser, type RequestUser } from '../common/decorators/current-user.decorator.js';
 import { sseStream } from '../realtime/sse.util.js';
 import { NotificationsService } from './notifications.service.js';
 
@@ -12,7 +12,7 @@ type NotificationCreatedPayload = { userId: string; notification: object };
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
-    private readonly events: EventEmitter2,
+    private readonly posts: EventEmitter2,
   ) {}
 
   @Get()
@@ -23,7 +23,7 @@ export class NotificationsController {
   @Sse('stream')
   stream(@CurrentUser() user: RequestUser) {
     return sseStream<NotificationCreatedPayload>(
-      this.events,
+      this.posts,
       'notification.created',
       (p) => p.userId === user.userId,
       (p) => p.notification,

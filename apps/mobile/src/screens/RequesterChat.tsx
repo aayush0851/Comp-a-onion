@@ -5,12 +5,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
 import { Avatar, Bubble, ChatBody, chatTime, Composer, EmptyState, Header, ratingText } from '../components/widgets';
-import { formatEventTime, initialsOf } from '../data/eventDisplay';
+import { formatPostTime, initialsOf } from '../data/postDisplay';
 import { useAppState } from '../store';
-import { chatApi, eventsApi, usersApi } from '../api';
+import { chatApi, postsApi, usersApi } from '../api';
 import { connectSse } from '../realtime';
 import type { ApiChatMessage } from '../api/chat';
-import type { ApiEvent, ApiUser } from '../api/types';
+import type { ApiPost, ApiUser } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequesterChat'>;
 
@@ -24,13 +24,13 @@ export default function RequesterChat({ navigation, route }: Props) {
   const [msgs, setMsgs] = useState<ApiChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [peer, setPeer] = useState<ApiUser | null>(null);
-  const [plan, setPlan] = useState<ApiEvent | null>(null);
+  const [plan, setPlan] = useState<ApiPost | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       chatApi.listDmThread(requesterId).then(setMsgs);
       usersApi.getPublicProfile(requesterId).then(setPeer).catch(() => {});
-      if (planId) eventsApi.getEvent(planId).then(setPlan).catch(() => {});
+      if (planId) postsApi.getPost(planId).then(setPlan).catch(() => {});
       const disconnect = connectSse<ApiChatMessage>(
         `/users/${requesterId}/dm/stream`,
         (msg) => setMsgs((prev) => appendUnique(prev, msg)),
@@ -79,7 +79,7 @@ export default function RequesterChat({ navigation, route }: Props) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.aboutTitle} numberOfLines={1}>{plan.title}</Text>
                 <Text style={styles.aboutSub} numberOfLines={1}>
-                  {isHost ? `${first} asked to join` : 'You asked to join'} · {formatEventTime(plan.time)}
+                  {isHost ? `${first} asked to join` : 'You asked to join'} · {formatPostTime(plan.time)}
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>

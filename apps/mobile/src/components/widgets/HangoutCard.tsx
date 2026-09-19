@@ -1,8 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font, seatTones, ToneKey, tones } from '../../theme';
+import { colors, font, lift, seatTones, ToneKey, tones } from '../../theme';
 import { Avatar } from './Avatar';
 import { ratingText } from './Stars';
 import { VerifiedDot } from './UserChip';
+import type { PostCard } from '../../data/postDisplay';
+import { MAP_LINK_LABEL, openMapLink } from '../../data/mapLink';
 
 export type FlagTone = 'zinc' | 'amber' | 'ink' | 'sky' | 'warn' | 'mint';
 export type CtaTone = 'ink' | 'amber' | 'soft' | 'disabled';
@@ -22,27 +24,17 @@ const CTA: Record<CtaTone, [string, string]> = {
   disabled: [colors.zinc200, colors.zinc400],
 };
 
-export type Seat = { label: string; photo?: string | null };
-
 export function HangoutCard({
-  host, hostInitials, hostPhoto, hostRating, hostTone = 'amber', verified = true, where, flag, flagTone = 'zinc',
-  title, blurb, tags = [], going = [], seatText, cta, ctaTone = 'ink', featured, onSurface, dimmed,
-  onPress, onPressHost, onPressCta,
+  card, hostRating, hostTone = 'amber', verified = true, flag, flagTone = 'zinc', tags = [], cta, ctaTone = 'ink',
+  featured, onSurface, dimmed, onPress, onPressHost, onPressCta,
 }: {
-  host: string;
-  hostInitials: string;
-  hostPhoto?: string | null;
+  card: PostCard;
   hostRating?: number | null;
   hostTone?: ToneKey;
   verified?: boolean;
-  where: string;
   flag?: string | null;
   flagTone?: FlagTone;
-  title: string;
-  blurb?: string | null;
   tags?: string[];
-  going?: Seat[];
-  seatText: string;
   cta?: string | null;
   ctaTone?: CtaTone;
   featured?: boolean;
@@ -52,6 +44,7 @@ export function HangoutCard({
   onPressHost?: () => void;
   onPressCta?: () => void;
 }) {
+  const { host, hostInitials, hostPhoto, whenShort, venue, mapUrl, title, description: blurb, going, goingLine: seatText } = card;
   const cardBg = featured ? colors.amber : onSurface ? colors.zinc100 : colors.white;
   const [flagBg, flagFg] = FLAG[flagTone];
   const [ctaBg, ctaFg] = CTA[ctaTone];
@@ -71,7 +64,10 @@ export function HangoutCard({
               )}
               {verified && <VerifiedDot size={14} />}
             </View>
-            <Text style={styles.where} numberOfLines={1}>{where}</Text>
+            <Text style={styles.where} numberOfLines={1}>
+              {mapUrl ? <Text style={styles.mapLink} onPress={() => openMapLink(mapUrl)}>{MAP_LINK_LABEL}</Text> : venue ?? 'Anywhere'}
+              {` · ${whenShort}`}
+            </Text>
           </View>
         </Pressable>
         {!!flag && (
@@ -128,19 +124,20 @@ const styles = StyleSheet.create({
   host: { fontFamily: font.bold, fontSize: 14.5, letterSpacing: -0.3, color: colors.ink, flexShrink: 1 },
   star: { fontSize: 10, color: colors.amber },
   rating: { fontFamily: font.bold, fontSize: 11.5, color: colors.ink },
+  mapLink: { textDecorationLine: 'underline' },
   where: { fontFamily: font.medium, fontSize: 11.5, color: colors.zinc500, marginTop: 3 },
   flag: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, maxWidth: 140 },
-  flagLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: -0.1 },
+  flagLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: -0.1, ...lift(10.5) },
   title: { fontFamily: font.extrabold, fontSize: 18, lineHeight: 23, letterSpacing: -0.5, color: colors.ink, marginTop: 14 },
   blurb: { fontFamily: font.regular, fontSize: 13, lineHeight: 19.5, color: colors.zinc500, marginTop: 6 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 },
   tag: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
-  tagLabel: { fontFamily: font.bold, fontSize: 10.5 },
+  tagLabel: { fontFamily: font.bold, fontSize: 10.5, ...lift(10.5) },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 15, paddingTop: 14, borderTopWidth: 1 },
   seatsWrap: { flexDirection: 'row', alignItems: 'center', gap: 9, minWidth: 0, flexShrink: 1 },
   seat: { width: 26, height: 26, borderRadius: 999, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   seatLabel: { fontFamily: font.bold, fontSize: 9.5 },
   seatText: { fontFamily: font.semibold, fontSize: 11.5, color: colors.zinc500, flexShrink: 1 },
   cta: { borderRadius: 999, paddingHorizontal: 17, minHeight: 44, justifyContent: 'center' },
-  ctaLabel: { fontFamily: font.bold, fontSize: 12.5 },
+  ctaLabel: { fontFamily: font.bold, fontSize: 12.5, ...lift(12.5) },
 });

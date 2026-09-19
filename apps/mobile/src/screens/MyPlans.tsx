@@ -6,19 +6,19 @@ import type { RootStackParamList } from '../navigation';
 import { colors, font } from '../theme';
 import { EmptyState, FilterChips, HangoutCard, Header, ListRow, ListSkeleton, Notice, TabBar, TabKey, StatusScrim } from '../components/widgets';
 import type { CtaTone, FlagTone } from '../components/widgets';
-import { formatEventDate, formatEventTime, toEventCard } from '../data/eventDisplay';
-import { eventsApi, joinRequestsApi } from '../api';
+import { formatPostDate, formatPostTime, toPostCard } from '../data/postDisplay';
+import { postsApi, joinRequestsApi } from '../api';
 import { useAppState } from '../store';
-import type { ApiEvent } from '../api/types';
+import type { ApiPost } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyPlans'>;
 
-type Role = 'host' | 'approved' | 'pending';
-type MyPlanItem = { event: ApiEvent; role: Role };
+type Role = 'host' | 'approved' | 'pending' | 'declined';
+type MyPlanItem = { post: ApiPost; role: Role; unread?: boolean };
 
 const FILTERS = ['Upcoming', 'Archived'] as const;
 
-const ROLE_UI: Record<Role, { flag: (e: ApiEvent) => string; flagTone: (e: ApiEvent) => FlagTone; cta: string; ctaTone: CtaTone }> = {
+const ROLE_UI: Record<Role, { flag: (e: ApiPost) => string; flagTone: (e: ApiPost) => FlagTone; cta: string; ctaTone: CtaTone }> = {
   host: {
     flag: (e) => (e.entryMode === 'APPROVE' ? 'You approve' : 'Open'),
     flagTone: (e) => (e.entryMode === 'APPROVE' ? 'amber' : 'sky'),
@@ -27,12 +27,13 @@ const ROLE_UI: Record<Role, { flag: (e: ApiEvent) => string; flagTone: (e: ApiEv
   },
   approved: { flag: () => "You're in", flagTone: () => 'mint', cta: 'Open chat', ctaTone: 'amber' },
   pending: { flag: () => 'Asked', flagTone: () => 'sky', cta: 'Requested', ctaTone: 'soft' },
+  declined: { flag: () => 'Passed', flagTone: () => 'zinc', cta: 'Not this time', ctaTone: 'disabled' },
 };
 
 export default function MyPlans({ navigation }: Props) {
   const state = useAppState();
   const [filter, setFilter] = useState<typeof FILTERS[number]>('Upcoming');
-  const [hosted, setHosted] = useState<ApiEvent[]>([]);
+  const [hosted, setHosted] = useState<ApiPost[]>([]);
   const [joined, setJoined] = useState<MyPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,13 +41,13 @@ export default function MyPlans({ navigation }: Props) {
 
   const fetchPlans = useCallback(() => {
     setError('');
-    return Promise.all([eventsApi.listHosted(), joinRequestsApi.listMine()])
-      .then(([hostedEvents, requests]) => {
-        setHosted(hostedEvents);
+    return Promise.all([postsApi.listHosted(), joinRequestsApi.listMine()])
+      .then(([hostedPosts, requests]) => {
+        setHosted(hostedPosts);
         setJoined(
           requests
-            .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING') && jr.event && jr.event.hostId !== state.userId)
-            .map((jr) => ({ event: jr.event!, role: jr.status === 'APPROVED' ? 'approved' as const : 'pending' as const })),
+            .filter((jr) => (jr.status === 'APPROVED' || jr.status === 'PENDING' || jr.status === 'DECLINED') && jr.post && jr.post.hostId !== state.userId)
+            .map((jr) => ({ post: jr.post!, role: jr.status === 'APPROVED' ? 'approved' as const : jr.status === 'DECLINED' ? 'declined' as const : 'pending' as const, unread: joinRequestsApi.isUnread(jr) })),
         );
       })
       .catch((e) => { console.error('My plans load failed', e); setError("Couldn't load your hangouts. Pull down to try again."); });
@@ -64,12 +65,12 @@ export default function MyPlans({ navigation }: Props) {
     fetchPlans().finally(() => setRefreshing(false));
   }, [fetchPlans]);
 
-  const hostedItems: MyPlanItem[] = hosted.map((event) => ({ event, role: 'host' as const }));
-  const archived = hostedItems.filter((i) => i.event.isArchived);
-  const upcoming = [...hostedItems.filter((i) => !i.event.isArchived), ...joined.filter((i) => !i.event.isArchived)]
-    .sort((a, b) => a.event.date.localeCompare(b.event.date));
+  const hostedItems: MyPlanItem[] = hosted.map((post) => ({ post, role: 'host' as const }));
+  const archived = hostedItems.filter((i) => i.post.isArchived);
+  const upcoming = [...hostedItems.filter((i) => !i.post.isArchived), ...joined.filter((i) => !i.post.isArchived)]
+    .sort((a, b) => a.post.date.localeCompare(b.post.date));
   const items = filter === 'Archived' ? archived : upcoming;
-  const nightsOut = archived.filter((i) => i.event.seatsFilled > 0).length;
+  const nightsOut = archived.filter((i) => i.post.seatsFilled > 0).length;
 
   const onTab = (key: TabKey) => {
     if (key === 'explore') navigation.navigate('Board');
@@ -77,7 +78,7 @@ export default function MyPlans({ navigation }: Props) {
     else if (key === 'me') navigation.navigate('Profile');
   };
 
-  const openItem = ({ event: e, role }: MyPlanItem) => {
+  const openItem = ({ post: e, role }: MyPlanItem) => {
     if (role === 'host') navigation.navigate('PlanManage', { id: e.id });
     else if (role === 'approved') navigation.navigate('Chat', { id: e.id });
     else navigation.navigate('Detail', { id: e.id });
@@ -121,26 +122,23 @@ export default function MyPlans({ navigation }: Props) {
         ) : filter === 'Upcoming' ? (
           <View style={{ paddingHorizontal: 18, gap: 11 }}>
             {items.map((item) => {
-              const { event: e, role } = item;
-              const card = toEventCard(e);
+              const { post: e, role } = item;
+              const card = toPostCard(e);
               const ui = ROLE_UI[role];
               const isHost = role === 'host';
               return (
                 <HangoutCard
                   key={e.id}
                   onSurface
-                  host={isHost ? 'You' : card.host}
-                  hostInitials={isHost ? 'Y' : card.hostInitials}
-                  hostPhoto={isHost ? e.host.profilePicture : card.hostPhoto}
+                  card={{
+                    ...card,
+                    ...(isHost && { host: 'You', hostInitials: 'Y' }),
+                    goingLine: `${e.seatsFilled} in · ${e.seatsTotal} seats`,
+                  }}
                   hostTone={isHost ? 'ink' : 'amber'}
                   hostRating={isHost && e.host.aggregatedRating ? e.host.aggregatedRating : null}
-                  where={card.whereWhen}
-                  flag={ui.flag(e)}
+                  flag={item.unread ? `${ui.flag(e)} · New` : ui.flag(e)}
                   flagTone={ui.flagTone(e)}
-                  title={e.title}
-                  blurb={e.description}
-                  going={card.going.map((g) => ({ label: g.label, photo: g.photo }))}
-                  seatText={`${e.seatsFilled} in · ${e.seatsTotal} seats`}
                   cta={ui.cta}
                   ctaTone={ui.ctaTone}
                   onPress={() => (isHost ? navigation.navigate('PlanManage', { id: e.id }) : navigation.navigate('Detail', { id: e.id }))}
@@ -151,8 +149,8 @@ export default function MyPlans({ navigation }: Props) {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 20, gap: 9 }}>
-            {items.map(({ event: e }) => {
-              const when = `${formatEventDate(e.date)} · ${formatEventTime(e.time)}`;
+            {items.map(({ post: e }) => {
+              const when = `${formatPostDate(e.date)} · ${formatPostTime(e.time)}`;
               const came = e.seatsFilled;
               return (
                 <ListRow

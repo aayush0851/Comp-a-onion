@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, font } from '../../theme';
+import { colors, font, lift } from '../../theme';
 
-export type ChipItem = string | { label: string; glyph?: string };
+export type ChipItem = string | { label: string; glyph?: string | ReactNode };
 
 export function FilterChips({
   items, active, onChange, activeTone = 'ink', scroll, multi,
@@ -25,8 +26,12 @@ export function FilterChips({
         accessibilityState={multi ? { checked: selected } : { selected }}
         style={[styles.chip, { backgroundColor: selected ? on.bg : colors.zinc100 }]}
       >
-        {!!glyph && <Text style={[styles.glyph, { color: selected ? on.fg : colors.zinc700 }]}>{glyph}</Text>}
-        <Text style={[styles.label, { color: selected ? on.fg : colors.zinc700 }]}>{label}</Text>
+        {typeof glyph === 'string' ? (
+          !!glyph && <Text style={[styles.glyph, { color: selected ? on.fg : colors.zinc700 }]}>{glyph}</Text>
+        ) : (
+          glyph
+        )}
+        {!!label && <Text style={[styles.label, { color: selected ? on.fg : colors.zinc700 }]}>{label}</Text>}
       </Pressable>
     );
   });
@@ -43,5 +48,5 @@ export function FilterChips({
 const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 999, minHeight: 42, paddingHorizontal: 16 },
   glyph: { fontSize: 11 },
-  label: { fontFamily: font.bold, fontSize: 12.5, letterSpacing: -0.1 },
+  label: { fontFamily: font.bold, fontSize: 12.5, letterSpacing: -0.1, ...lift(12.5) },
 });

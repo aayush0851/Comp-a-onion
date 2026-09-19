@@ -5,10 +5,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
 import { Avatar, Btn, EmptyState, Header, ListSkeleton, Stars, UserChip, StatusScrim } from '../components/widgets';
-import { formatEventDate, initialsOf } from '../data/eventDisplay';
+import { formatPostDate, initialsOf } from '../data/postDisplay';
 import { useAppDispatch, useAppState } from '../store';
 import { reviewsApi } from '../api';
 import type { ApiPersonReview } from '../api/reviews';
+import { isDefined } from '@companion/common';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewDetail'>;
 
@@ -42,7 +43,7 @@ export default function ReviewDetail({ navigation, route }: Props) {
 
   const reviewer = review.review.reviewer;
   const reviewerName = reviewer.name ?? 'Someone';
-  const date = formatEventDate(review.review.createdAt);
+  const date = formatPostDate(review.review.createdAt);
   const existingReply = state.reviewReplies[review.id];
 
   const post = () => {
@@ -64,7 +65,7 @@ export default function ReviewDetail({ navigation, route }: Props) {
               chevron
               onPress={() => navigation.navigate('RequesterProfile', { userId: reviewer.id })}
             />
-            {review.rating != null && <View style={{ marginTop: 15 }}><Stars value={review.rating} size="l" showValue={false} /></View>}
+            {isDefined(review.rating) && <View style={{ marginTop: 15 }}><Stars value={review.rating} size="l" showValue={false} /></View>}
             {!!review.note && <Text style={styles.note}>“{review.note}”</Text>}
             {review.tags.length > 0 && (
               <View style={styles.tags}>
@@ -74,8 +75,8 @@ export default function ReviewDetail({ navigation, route }: Props) {
               </View>
             )}
             <View style={styles.planRow}>
-              <Avatar initials={initialsOf(review.review.event.title).slice(0, 1)} size={30} rounded={9} tone="amber" />
-              <Text style={styles.planText} numberOfLines={1}>{review.review.event.title} · {formatEventDate(review.review.event.date)}</Text>
+              <Avatar initials={initialsOf(review.review.post.title).slice(0, 1)} size={30} rounded={9} tone="amber" />
+              <Text style={styles.planText} numberOfLines={1}>{review.review.post.title} · {formatPostDate(review.review.post.date)}</Text>
             </View>
           </View>
 

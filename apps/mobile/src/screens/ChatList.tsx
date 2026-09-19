@@ -5,11 +5,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, ToneKey } from '../theme';
 import { EmptyState, FilterChips, Header, ListRow, ListSkeleton, TabBar, StatusScrim } from '../components/widgets';
-import { initialsOf } from '../data/eventDisplay';
+import { initialsOf } from '../data/postDisplay';
 import { shortStamp } from '../data';
 import { chatApi } from '../api';
 import { connectSse } from '../realtime';
-import type { ApiChatMessage, ApiDmThread, ApiEventThread } from '../api/chat';
+import type { ApiChatMessage, ApiDmThread, ApiPostThread } from '../api/chat';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatList'>;
 
@@ -18,13 +18,13 @@ const PEOPLE_TONES: ToneKey[] = ['sky', 'mint', 'amber', 'zinc'];
 
 export default function ChatList({ navigation }: Props) {
   const [filter, setFilter] = useState(0);
-  const [eventThreads, setEventThreads] = useState<ApiEventThread[]>([]);
+  const [postThreads, setPostThreads] = useState<ApiPostThread[]>([]);
   const [dmThreads, setDmThreads] = useState<ApiDmThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchThreads = useCallback(async () => {
-    const [threads, dms] = await Promise.all([chatApi.listEventThreads(), chatApi.listDmThreads()]);
+    const [threads, dms] = await Promise.all([chatApi.listPostThreads(), chatApi.listDmThreads()]);
     return { threads, dms };
   }, []);
 
@@ -36,7 +36,7 @@ export default function ChatList({ navigation }: Props) {
       fetchThreads()
         .then(({ threads, dms }) => {
           if (cancelled) return;
-          setEventThreads(threads);
+          setPostThreads(threads);
           setDmThreads(dms);
         })
         .finally(() => { if (!cancelled) setLoading(false); });
@@ -48,11 +48,11 @@ export default function ChatList({ navigation }: Props) {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchThreads()
-      .then(({ threads, dms }) => { setEventThreads(threads); setDmThreads(dms); })
+      .then(({ threads, dms }) => { setPostThreads(threads); setDmThreads(dms); })
       .finally(() => setRefreshing(false));
   }, [fetchThreads]);
 
-  const eventThreadIds = eventThreads.map((t) => t.eventId).join(',');
+  const postThreadIds = postThreads.map((t) => t.postId).join(',');
   const dmPeerIds = dmThreads.map((t) => t.peer.id).join(',');
 
   // Live updates for threads already on screen — a brand-new thread (first DM
@@ -62,9 +62,9 @@ export default function ChatList({ navigation }: Props) {
     useCallback(() => {
       if (loading) return;
       const disconnects = [
-        ...eventThreads.map((t) => connectSse<ApiChatMessage>(`/events/${t.eventId}/messages/stream`, (msg) => {
-          setEventThreads((prev) => prev
-            .map((p) => (p.eventId === t.eventId ? { ...p, lastMessage: msg } : p))
+        ...postThreads.map((t) => connectSse<ApiChatMessage>(`/posts/${t.postId}/messages/stream`, (msg) => {
+          setPostThreads((prev) => prev
+            .map((p) => (p.postId === t.postId ? { ...p, lastMessage: msg } : p))
             .sort((a, b) => (b.lastMessage?.createdAt ?? '').localeCompare(a.lastMessage?.createdAt ?? '')));
         })),
         ...dmThreads.map((t) => connectSse<ApiChatMessage>(`/users/${t.peer.id}/dm/stream`, (msg) => {
@@ -73,13 +73,13 @@ export default function ChatList({ navigation }: Props) {
       ];
       return () => disconnects.forEach((d) => d());
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading, eventThreadIds, dmPeerIds]),
+    }, [loading, postThreadIds, dmPeerIds]),
   );
 
-  const visibleEventThreads = filter !== 2 ? eventThreads : [];
+  const visiblePostThreads = filter !== 2 ? postThreads : [];
   const visibleDmThreads = filter !== 1 ? dmThreads : [];
-  const isEmpty = eventThreads.length === 0 && dmThreads.length === 0;
-  const total = eventThreads.length + dmThreads.length;
+  const isEmpty = postThreads.length === 0 && dmThreads.length === 0;
+  const total = postThreads.length + dmThreads.length;
 
   return (
     <View style={styles.screen}>
@@ -113,16 +113,16 @@ export default function ChatList({ navigation }: Props) {
               <FilterChips items={FILTERS} active={filter} onChange={setFilter} />
             </View>
             <View style={styles.list}>
-              {visibleEventThreads.map((t) => (
+              {visiblePostThreads.map((t) => (
                 <ListRow
-                  key={t.eventId}
+                  key={t.postId}
                   title={t.title}
                   meta={t.lastMessage ? `${t.lastMessage.author.name ?? 'Someone'}: ${t.lastMessage.text}` : 'Say hi to start the conversation.'}
                   initials={initialsOf(t.title).slice(0, 1)}
                   tone="amber"
                   pill="HANGOUT"
                   right={t.lastMessage ? shortStamp(t.lastMessage.createdAt) : null}
-                  onPress={() => navigation.navigate('Chat', { id: t.eventId })}
+                  onPress={() => navigation.navigate('Chat', { id: t.postId })}
                 />
               ))}
               {visibleDmThreads.map((t, i) => (

@@ -33,7 +33,7 @@ export type ApiUser = {
   createdAt: string;
 };
 
-export type ApiEvent = {
+export type ApiPost = {
   id: string;
   hostId: string;
   host: ApiUser;
@@ -48,16 +48,18 @@ export type ApiEvent = {
   genderRestriction: ApiGenderRestriction;
   costMode: ApiCostMode | null;
   isArchived: boolean;
+  isFeatured: boolean;
   createdAt: string;
   seatsFilled: number;
   isFull: boolean;
+  isExpired: boolean;
   going: ApiUser[];
 };
 
 export type ApiJoinRequest = {
   id: string;
-  eventId: string;
-  event?: ApiEvent;
+  postId: string;
+  post?: ApiPost;
   userId: string;
   user?: ApiUser;
   status: ApiJoinRequestStatus;

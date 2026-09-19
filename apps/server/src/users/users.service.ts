@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
+import { isChanged } from '@companion/common';
 
 const MIN_AGE_YEARS = 18;
 
@@ -30,8 +31,14 @@ export class UsersService {
     return this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
   }
 
-  updateMe(userId: string, dto: UpdateUserDto) {
+  async updateMe(userId: string, dto: UpdateUserDto) {
+    const current = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, dob: true, gender: true } });
     const dob = dto.dob ? new Date(dto.dob) : undefined;
+    const changed =
+      isChanged(dto.name, current.name) ||
+      isChanged(dto.gender, current.gender) ||
+      isChanged(dob, current.dob, (a, b) => a.getTime() === b.getTime());
+    if (changed) throw new BadRequestException('Name, date of birth and gender can’t be changed once set');
     if (dob && !isAtLeastMinAge(dob)) throw new BadRequestException(`You must be at least ${MIN_AGE_YEARS} years old`);
     return this.prisma.user.update({
       where: { id: userId },

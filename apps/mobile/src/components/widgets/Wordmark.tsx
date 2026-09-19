@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font } from '../../theme';
+import { colors, font, text } from '../../theme';
 import { SERVER_STATUS_INDICATOR_ENABLED } from '../../data';
 import { ServerStatusDot, useServerStatus } from './ServerStatusDot';
 
@@ -15,8 +15,7 @@ export function CheckMark({ size = 26, dark = true }: { size?: number; dark?: bo
 export function Wordmark({ ink = colors.ink, onDark }: { ink?: string; onDark?: boolean }) {
   const content = (
     <>
-      <CheckMark dark={!onDark} />
-      <Text style={[styles.word, { color: ink }]}>Companion</Text>
+      <Text numberOfLines={1} style={text.bigTitle}>Companion</Text>
     </>
   );
   if (!SERVER_STATUS_INDICATOR_ENABLED) return <View style={styles.row}>{content}</View>;

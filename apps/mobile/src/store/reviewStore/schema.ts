@@ -1,4 +1,4 @@
-// setupScores/setupTags are keyed by planId (the event being reviewed);
+// setupScores/setupTags are keyed by planId (the post being reviewed);
 // peopleTags/personRatings/personNotes/meetAgain/flagged are keyed by
 // the reviewee's user id. reviewReplies is keyed by the id of a PersonReview
 // someone else left about you (see api/reviews.ts).

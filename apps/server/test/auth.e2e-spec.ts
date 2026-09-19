@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 
-vi.mock('../src/auth/google-verifier.js', () => ({
+vi.mock('../src/auth/verifiers/google-verifier.js', () => ({
   verifyGoogleAccessToken: vi.fn(async (token: string) => ({ email: token.replace('fake-token-for-', '') })),
 }));
 

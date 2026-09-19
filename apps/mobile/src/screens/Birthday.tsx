@@ -6,6 +6,7 @@ import { colors, font } from '../theme';
 import { Btn, Footer, Header, Notice, TextField } from '../components/widgets';
 import { useAppState, useAppDispatch } from '../store';
 import { ONBOARDING_STEPS } from '../data';
+import { isDefined } from '@companion/common';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Birthday'>;
 
@@ -13,6 +14,15 @@ function isValidDate(day: number, month: number, year: number): boolean {
   if (year < 1900 || year > new Date().getFullYear()) return false;
   const d = new Date(year, month - 1, day);
   return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day && d.getTime() <= Date.now();
+}
+
+// Feb 29 only exists in leap years — default to one (2000) while the year isn't typed yet
+// so day entry stays permissive instead of guessing wrong.
+function daysInMonth(month: string, year: string): number {
+  const m = Number(month);
+  if (month.length < 2 || m < 1 || m > 12) return 31;
+  const y = year.length === 4 ? Number(year) : 2000;
+  return new Date(y, m, 0).getDate();
 }
 
 function calcAge(day: number, month: number, year: number): number {
@@ -33,9 +43,28 @@ export default function Birthday({ navigation }: Props) {
   const complete = day.length === 2 && month.length === 2 && year.length === 4;
   const validFormat = complete && isValidDate(Number(day), Number(month), Number(year));
   const age = validFormat ? calcAge(Number(day), Number(month), Number(year)) : null;
-  const canContinue = validFormat && age !== null && age >= 18;
+  const canContinue = validFormat && isDefined(age) && age >= 18;
 
   const setField = (field: 'day' | 'month' | 'year', value: string) => dispatch({ type: 'SET_DOB', field, value });
+
+  const updateField = (field: 'day' | 'month' | 'year', raw: string) => {
+    const maxLen = field === 'year' ? 4 : 2;
+    let v = raw.replace(/\D/g, '').slice(0, maxLen);
+    if (field === 'month' && v.length === maxLen) v = String(Math.min(Math.max(Number(v), 1), 12)).padStart(2, '0');
+    if (field === 'day' && v.length === maxLen) v = String(Math.min(Math.max(Number(v), 1), daysInMonth(month, year))).padStart(2, '0');
+    setField(field, v);
+
+    // Changing month/year can invalidate an already-typed day (e.g. day 30 + Feb) — clamp it back in step.
+    if (field !== 'day' && day.length === 2) {
+      const max = daysInMonth(field === 'month' ? v : month, field === 'year' ? v : year);
+      if (Number(day) > max) setField('day', String(max).padStart(2, '0'));
+    }
+
+    if (v.length === maxLen) {
+      if (field === 'day') monthRef.current?.focus();
+      if (field === 'month') yearRef.current?.focus();
+    }
+  };
 
   const submit = () => {
     if (!canContinue) return;
@@ -57,36 +86,39 @@ export default function Birthday({ navigation }: Props) {
         <View style={styles.row}>
           <TextField
             value={day}
-            onChangeText={(t) => { const v = t.replace(/\D/g, '').slice(0, 2); setField('day', v); if (v.length === 2) monthRef.current?.focus(); }}
+            onChangeText={(t) => updateField('day', t)}
             placeholder="DD"
             keyboardType="number-pad"
             maxLength={2}
             autoFocus
+            selectTextOnFocus
             style={[styles.input, { flex: 1 }]}
           />
           <TextField
             ref={monthRef}
             value={month}
-            onChangeText={(t) => { const v = t.replace(/\D/g, '').slice(0, 2); setField('month', v); if (v.length === 2) yearRef.current?.focus(); }}
+            onChangeText={(t) => updateField('month', t)}
             placeholder="MM"
             keyboardType="number-pad"
             maxLength={2}
+            selectTextOnFocus
             style={[styles.input, { flex: 1 }]}
           />
           <TextField
             ref={yearRef}
             value={year}
-            onChangeText={(t) => setField('year', t.replace(/\D/g, '').slice(0, 4))}
+            onChangeText={(t) => updateField('year', t)}
             placeholder="YYYY"
             keyboardType="number-pad"
             maxLength={4}
+            selectTextOnFocus
             style={[styles.input, { flex: 1.4 }]}
           />
         </View>
         {complete && !validFormat && (
           <Notice tone="rose" style={{ marginTop: 12 }}>That's not a real date. Double-check it.</Notice>
         )}
-        {validFormat && age !== null && age < 18 && (
+        {validFormat && isDefined(age) && age < 18 && (
           <Notice tone="rose" style={{ marginTop: 12 }}>You need to be 18 or older to use Companion.</Notice>
         )}
       </View>

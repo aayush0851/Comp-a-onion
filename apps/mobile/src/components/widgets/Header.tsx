@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, font, text } from '../../theme';
+import { colors, font, lift, text } from '../../theme';
 import { BackButton } from './BackButton';
 import { Steps } from './Steps';
 import { Wordmark } from './Wordmark';
@@ -10,8 +10,9 @@ export type HeaderVariant = 'home' | 'stack' | 'convo';
 
 export function Header({
   variant = 'stack', title, subtitle, eyebrow, centerLabel, action, actionTone = 'zinc', actionDot, onAction, onBack,
-  stepsTotal, stepsCurrent, ink = colors.ink, left, right, hideTitle,
+  stepsTotal, stepsCurrent, ink = colors.ink, left, right, hideTitle, showTitle,
 }: {
+  showTitle?: boolean;
   variant?: HeaderVariant;
   title?: string;
   subtitle?: string | null;
@@ -39,7 +40,7 @@ export function Header({
         <View style={styles.row}>
           <View style={styles.left}>
             {variant !== 'home' && <BackButton onPress={onBack} dark={onDark} />}
-            {variant === 'home' && <Wordmark ink={ink} onDark={onDark} />}
+            {variant === 'home' && <Text numberOfLines={1} style={text.bigTitle}>{title}</Text>}
             {convo && (
               <View style={{ minWidth: 0, flex: 1 }}>
                 {left ?? (
@@ -65,7 +66,7 @@ export function Header({
             <Steps total={stepsTotal} current={stepsCurrent ?? 1} />
           </View>
         )}
-        {!convo && !hideTitle && !!title && (
+        {showTitle && !convo && !hideTitle && !!title && (
           <View style={{ marginTop: 14 }}>
             {!!eyebrow && <Text style={[text.eyebrow, { marginBottom: 9 }]}>{eyebrow}</Text>}
             <Text style={[text.bigTitle, { color: ink }]}>{title}</Text>
@@ -87,5 +88,5 @@ const styles = StyleSheet.create({
   centerLabel: { flex: 1, textAlign: 'center', marginRight: 42, fontFamily: font.extrabold, fontSize: 10.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.zinc400 },
   action: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 999, paddingHorizontal: 15, minHeight: 42 },
   actionDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: colors.ink },
-  actionLabel: { fontFamily: font.bold, fontSize: 12, letterSpacing: -0.1, color: colors.ink },
+  actionLabel: { fontFamily: font.bold, fontSize: 12, letterSpacing: -0.1, color: colors.ink, ...lift(12) },
 });

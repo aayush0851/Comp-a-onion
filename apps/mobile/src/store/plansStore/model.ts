@@ -20,6 +20,12 @@ const emptyDraft = {
 
 export const plansInitialState: PlansState = {
   filter: 0,
+  searchQuery: '',
+  groupSize: 2,
+  whoThere: 1,
+  hideAsked: false,
+  boardVersion: 0,
+  typeFilters: [] as string[],
   ...emptyDraft,
 };
 
@@ -27,6 +33,18 @@ export function plansReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_FILTER':
       return { ...state, filter: action.filter };
+    case 'SET_SEARCH_QUERY':
+      return { ...state, searchQuery: action.query };
+    case 'SET_GROUP_SIZE':
+      return { ...state, groupSize: action.groupSize };
+    case 'SET_WHO_THERE':
+      return { ...state, whoThere: action.whoThere };
+    case 'SET_TYPE_FILTERS':
+      return { ...state, typeFilters: action.types };
+    case 'REFRESH_BOARD':
+      return { ...state, boardVersion: state.boardVersion + 1 };
+    case 'SET_HIDE_ASKED':
+      return { ...state, hideAsked: action.value };
     case 'SET_STEP':
       return { ...state, step: action.step };
     case 'SET_TITLE':
@@ -35,9 +53,7 @@ export function plansReducer(state: AppState, action: Action): AppState {
       return { ...state, planDescription: action.description };
     case 'TOGGLE_TAG': {
       const has = state.planTags.includes(action.tag);
-      let tags = has ? state.planTags.filter((t) => t !== action.tag) : [...state.planTags, action.tag];
-      if (tags.length > 3) tags = tags.slice(tags.length - 3);
-      return { ...state, planTags: tags };
+      return { ...state, planTags: has ? [] : [action.tag] };
     }
     case 'SET_DATE':
       return { ...state, planDate: action.date };

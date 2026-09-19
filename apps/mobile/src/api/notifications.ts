@@ -5,10 +5,10 @@ export type ApiNotificationKind = 'JOIN_REQUEST' | 'APPROVAL' | 'REVIEW_UNLOCKED
 export type ApiNotification = {
   id: string;
   kind: ApiNotificationKind;
-  payload: { eventId?: string; userId?: string; reviewerId?: string; joinRequestId?: string; decision?: 'APPROVED' | 'DECLINED' };
+  payload: { postId?: string; userId?: string; reviewerId?: string; joinRequestId?: string; decision?: 'APPROVED' | 'DECLINED' };
   read: boolean;
   createdAt: string;
-  eventTitle: string | null;
+  postTitle: string | null;
   actorName: string | null;
 };
 

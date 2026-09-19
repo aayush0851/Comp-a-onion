@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, text } from '../theme';
+import { isValidVenue, POST_DESCRIPTION_MAX, POST_TITLE_MAX, VENUE_TEXT_MAX } from '@companion/common';
 import { Btn, FieldLabel, FilterChips, Footer, Header, TextField, Toggle, StatusScrim } from '../components/widgets';
-import { COST_MODE_OPTIONS, GENDER_RESTRICTION_OPTIONS, VIBE_TAGS, nextSevenDays } from '../data';
+import { COST_MODE_OPTIONS, GENDER_RESTRICTION_OPTIONS, PLAN_TYPES, nextSevenDays } from '../data';
 import { useAppState, useAppDispatch } from '../store';
 import TimeWheelSheet from '../components/TimeWheelSheet';
-import { eventsApi, ApiError } from '../api';
-import type { ApiEvent } from '../api/types';
+import { postsApi, ApiError } from '../api';
+import type { ApiPost } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
 
 const STEP_TITLES = ['What are you doing tonight?', 'When, and where-ish?', 'Who comes, and how they get in'];
 const STEP_CTAS = ['Continue to Time & Spot', "Continue to Who's Coming", 'Post the hangout'];
-const MAX_TITLE = 120;
-const MAX_DESCRIPTION = 280;
+const MAX_TITLE = POST_TITLE_MAX;
+const MAX_DESCRIPTION = POST_DESCRIPTION_MAX;
 const DATE_CELL = (Dimensions.get('window').width - 40 - 20) / 3;
 
 function to24Hour(time: string): string {
@@ -47,9 +49,10 @@ export default function Create({ navigation }: Props) {
   const [showTimeSheet, setShowTimeSheet] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
-  const [posted, setPosted] = useState<ApiEvent | null>(null);
+  const [posted, setPosted] = useState<ApiPost | null>(null);
 
-  const canContinue = (state.step !== 0 || state.planTitle.trim().length > 0) && (state.step !== 1 || !!state.planDate);
+  const venueOk = isValidVenue(state.planVenue ?? '');
+  const canContinue = (state.step !== 0 || state.planTitle.trim().length > 0) && (state.step !== 1 || (!!state.planDate && venueOk));
   const setApproval = (value: boolean) => dispatch({ type: 'SET_APPROVAL_REQUIRED', value });
 
   const next = async () => {
@@ -61,7 +64,7 @@ export default function Create({ navigation }: Props) {
     setPublishing(true);
     setError('');
     try {
-      const event = await eventsApi.createEvent({
+      const post = await postsApi.createPost({
         title: state.planTitle.trim(),
         description: state.planDescription.trim() || undefined,
         date: state.planDate!,
@@ -74,7 +77,7 @@ export default function Create({ navigation }: Props) {
         costMode: state.costMode,
       });
       dispatch({ type: 'RESET_CREATE' });
-      setPosted(event);
+      setPosted(post);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't post. Try again.");
     } finally {
@@ -119,7 +122,7 @@ export default function Create({ navigation }: Props) {
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
         <Header
           variant="stack"
-          centerLabel={`Step ${state.step + 1} of 3`}
+          showTitle
           stepsTotal={3}
           stepsCurrent={state.step + 1}
           title={STEP_TITLES[state.step]}
@@ -152,14 +155,14 @@ export default function Create({ navigation }: Props) {
                 maxLength={MAX_DESCRIPTION}
                 style={{ minHeight: 72, textAlignVertical: 'top' }}
               />
-              <Text style={styles.toneTitle}>Set the tone</Text>
+              <Text style={styles.toneTitle}>What kind of plan?</Text>
               <View style={{ marginTop: 12 }}>
                 <FilterChips
                   multi
                   activeTone="amber"
-                  items={VIBE_TAGS}
-                  active={VIBE_TAGS.map((t, i) => (state.planTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
-                  onChange={(i) => dispatch({ type: 'TOGGLE_TAG', tag: VIBE_TAGS[i] })}
+                  items={PLAN_TYPES}
+                  active={PLAN_TYPES.map((t, i) => (state.planTags.includes(t) ? i : -1)).filter((i) => i >= 0)}
+                  onChange={(i) => dispatch({ type: 'TOGGLE_TAG', tag: PLAN_TYPES[i] })}
                 />
               </View>
               <View style={{ marginTop: 20 }}>
@@ -196,7 +199,7 @@ export default function Create({ navigation }: Props) {
                   <Text style={[styles.timeValue, !state.planTime && { color: colors.zinc400 }]}>{state.planTime ?? 'Any time'}</Text>
                   {!!state.planTime && (
                     <Pressable onPress={() => dispatch({ type: 'CLEAR_TIME' })} hitSlop={10} style={styles.clear}>
-                      <Text style={styles.clearLabel}>×</Text>
+                      <Octicons name="x" size={13} color={colors.zinc700} />
                     </Pressable>
                   )}
                 </View>
@@ -212,6 +215,7 @@ export default function Create({ navigation }: Props) {
                 keyboardType="url"
                 style={{ fontFamily: font.semibold, fontSize: 15 }}
               />
+              {!venueOk && <Text style={styles.venueError}>Paste a Maps link, or keep it to {VENUE_TEXT_MAX} characters.</Text>}
               <View style={styles.spotNote}>
                 <View style={styles.spotRing} />
                 <Text style={styles.spotText}>Nobody sees the exact spot until you let them in.</Text>
@@ -228,13 +232,13 @@ export default function Create({ navigation }: Props) {
 
           {state.step === 2 && (
             <>
-              <FieldLabel>Table size</FieldLabel>
+              <FieldLabel>Group size</FieldLabel>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {(['duo', 'group'] as const).map((shape) => {
                   const sel = state.shape === shape;
                   return (
                     <Pressable key={shape} onPress={() => dispatch({ type: 'SET_SHAPE', shape })} style={[styles.segment, { backgroundColor: sel ? colors.ink : colors.zinc100 }]}>
-                      <Text style={[styles.segmentLabel, { color: sel ? colors.amber : colors.zinc700 }]}>{shape === 'duo' ? 'Just me + one' : 'A whole table'}</Text>
+                      <Text style={[styles.segmentLabel, { color: sel ? colors.amber : colors.zinc700 }]}>{shape === 'duo' ? 'Just me + one' : 'A whole group'}</Text>
                     </Pressable>
                   );
                 })}
@@ -242,11 +246,11 @@ export default function Create({ navigation }: Props) {
               {state.shape === 'group' && (
                 <View style={styles.stepper}>
                   <Pressable onPress={() => dispatch({ type: 'SET_SIZE', delta: -1 })} style={[styles.stepperBtn, { backgroundColor: colors.white }]}>
-                    <Text style={styles.stepperGlyph}>−</Text>
+                    <Octicons name="dash" size={18} color={colors.ink} />
                   </Pressable>
                   <Text style={styles.stepperLabel}>Up to {state.size}, including you</Text>
                   <Pressable onPress={() => dispatch({ type: 'SET_SIZE', delta: 1 })} style={[styles.stepperBtn, { backgroundColor: colors.ink }]}>
-                    <Text style={[styles.stepperGlyph, { color: colors.amber }]}>+</Text>
+                    <Octicons name="plus" size={18} color={colors.amber} />
                   </Pressable>
                 </View>
               )}
@@ -291,6 +295,7 @@ const styles = StyleSheet.create({
   ideaBox: { backgroundColor: colors.zinc100, borderRadius: 20, padding: 16 },
   ideaInput: { marginTop: 10, minHeight: 72, padding: 0, textAlignVertical: 'top', fontFamily: font.bold, fontSize: 16.5, lineHeight: 24, letterSpacing: -0.4, color: colors.ink },
   ideaCount: { alignSelf: 'flex-end', marginTop: 12, fontFamily: font.bold, fontSize: 9.5, letterSpacing: 1, color: colors.zinc400 },
+  venueError: { fontFamily: font.medium, fontSize: 12, color: colors.roseInk, marginTop: 8 },
   toneTitle: { marginTop: 22, fontFamily: font.extrabold, fontSize: 15, letterSpacing: -0.4, color: colors.ink },
   approval: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.sky, borderRadius: 20, padding: 16 },
   approvalTitle: { fontFamily: font.extrabold, fontSize: 14.5, letterSpacing: -0.3, color: '#0C4A6E' },
@@ -302,7 +307,6 @@ const styles = StyleSheet.create({
   timeLabel: { fontFamily: font.semibold, fontSize: 15, color: colors.zinc500 },
   timeValue: { fontFamily: font.extrabold, fontSize: 15, color: colors.ink },
   clear: { width: 22, height: 22, borderRadius: 999, backgroundColor: colors.zinc200, alignItems: 'center', justifyContent: 'center' },
-  clearLabel: { fontFamily: font.bold, fontSize: 13, lineHeight: 15, color: colors.zinc700 },
   spotNote: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 11, backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 15 },
   spotRing: { width: 16, height: 16, borderRadius: 999, borderWidth: 2, borderColor: colors.skyInk },
   spotText: { flex: 1, fontFamily: font.regular, fontSize: 12, lineHeight: 18, color: colors.skyInk },
@@ -310,7 +314,6 @@ const styles = StyleSheet.create({
   segmentLabel: { fontFamily: font.bold, fontSize: 13.5 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.zinc100, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 10, marginTop: 10 },
   stepperBtn: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  stepperGlyph: { fontFamily: font.bold, fontSize: 19, color: colors.ink },
   stepperLabel: { fontFamily: font.bold, fontSize: 13.5, color: colors.ink },
   error: { fontFamily: font.semibold, fontSize: 12.5, color: colors.roseInk, textAlign: 'center', marginBottom: 8 },
   posted: { flex: 1, backgroundColor: colors.amber },

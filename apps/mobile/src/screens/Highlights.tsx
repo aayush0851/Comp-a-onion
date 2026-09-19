@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Octicons from '@expo/vector-icons/Octicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, font, seatTones } from '../theme';
@@ -119,7 +120,7 @@ export default function Highlights({ navigation, route }: Props) {
               <View key={i} style={[styles.slot, { backgroundColor: bg }]}>
                 {item.type === 'image' && <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
                 <Pressable hitSlop={6} onPress={() => dispatch({ type: 'REMOVE_HIGHLIGHT', index: i })} style={styles.remove}>
-                  <Text style={styles.removeLabel}>×</Text>
+                  <Octicons name="x" size={14} color={colors.amber} />
                 </Pressable>
                 <View style={[styles.kind, item.type === 'image' && styles.kindOnPhoto]}>
                   <Text style={[styles.kindLabel, { color: item.type === 'image' ? colors.white : fg }]}>{item.type === 'video' ? 'clip' : 'photo'}</Text>
@@ -150,9 +151,7 @@ const styles = StyleSheet.create({
   slot: { width: SLOT_WIDTH, height: SLOT_HEIGHT, borderRadius: 16, overflow: 'hidden' },
   addSlot: { backgroundColor: colors.zinc100, alignItems: 'center', justifyContent: 'center' },
   addIcon: { fontFamily: font.bold, fontSize: 20, color: colors.zinc400 },
-  remove: { position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  removeLabel: { fontFamily: font.bold, fontSize: 13, lineHeight: 15, color: colors.amber },
-  kind: { position: 'absolute', left: 8, bottom: 8 },
+  remove: { position: 'absolute', right: 6, top: 6, width: 24, height: 24, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },  kind: { position: 'absolute', left: 8, bottom: 8 },
   kindOnPhoto: { backgroundColor: 'rgba(24,24,24,.55)', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
   kindLabel: { fontFamily: font.monoSemibold, fontSize: 8.5 },
 });

@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { colors, ToneKey } from '../theme';
 import { EmptyState, Header, ListRow, ListSkeleton, StatusScrim } from '../components/widgets';
-import { initialsOf } from '../data/eventDisplay';
+import { initialsOf } from '../data/postDisplay';
 import { joinRequestsApi } from '../api';
 import type { ApiJoinRequest } from '../api/types';
 
@@ -65,15 +65,15 @@ export default function SentRequests({ navigation }: Props) {
               return (
                 <ListRow
                   key={jr.id}
-                  title={jr.event?.title ?? 'A hangout'}
+                  title={jr.post?.title ?? 'A hangout'}
                   meta={s.meta}
-                  initials={initialsOf(jr.event?.title ?? null)}
+                  initials={initialsOf(jr.post?.title ?? null)}
                   squircle
                   tone={s.tone}
                   pill={s.pill}
                   pillTone={s.pillTone}
                   chevron={open}
-                  onPress={open ? () => navigation.navigate(jr.status === 'APPROVED' ? 'Chat' : 'Detail', { id: jr.eventId }) : undefined}
+                  onPress={open ? () => navigation.navigate(jr.status === 'APPROVED' ? 'Chat' : 'Detail', { id: jr.postId }) : undefined}
                 />
               );
             })}

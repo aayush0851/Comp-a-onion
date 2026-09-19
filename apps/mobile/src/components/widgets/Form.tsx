@@ -1,5 +1,6 @@
 import { forwardRef, type ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import Octicons from '@expo/vector-icons/Octicons';
 import { colors, font, text } from '../../theme';
 
 export function FieldLabel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -67,10 +68,10 @@ export function RadioRow({ label, selected, onPress }: { label: string; selected
   );
 }
 
-export function CheckDot({ size = 19, bg = colors.mintInk, fg = colors.white, glyph = '✓' }: { size?: number; bg?: string; fg?: string; glyph?: string }) {
+export function CheckDot({ size = 19, bg = colors.mintInk, fg = colors.white }: { size?: number; bg?: string; fg?: string }) {
   return (
     <View style={{ width: size, height: size, minWidth: size, borderRadius: 999, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: font.extrabold, fontSize: size * 0.53, color: fg }}>{glyph}</Text>
+      <Octicons name="check" size={Math.round(size * 0.6)} color={fg} />
     </View>
   );
 }

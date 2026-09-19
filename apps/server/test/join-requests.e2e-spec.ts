@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { loginAsNewGoogleUser } from './utils/login.js';
 
-vi.mock('../src/auth/google-verifier.js', () => ({
+vi.mock('../src/auth/verifiers/google-verifier.js', () => ({
   verifyGoogleAccessToken: vi.fn(async (token: string) => ({ email: token.replace('fake-token-for-', '') })),
 }));
 
@@ -22,27 +22,27 @@ describe('JoinRequests (e2e)', () => {
     await app.close();
   });
 
-  it('rejects approving past an event capacity of 1', async () => {
+  it('rejects approving past an post capacity of 1', async () => {
     const stamp = Date.now();
     const { token: hostToken } = await loginAsNewGoogleUser(app, `jr-host-${stamp}@example.com`);
     const { token: attendeeAToken } = await loginAsNewGoogleUser(app, `jr-a-${stamp}@example.com`);
     const { token: attendeeBToken } = await loginAsNewGoogleUser(app, `jr-b-${stamp}@example.com`);
 
     const create = await request(app.getHttpServer())
-      .post('/events')
+      .post('/posts')
       .set('Authorization', `Bearer ${hostToken}`)
       .send({ title: 'One seat only', date: new Date().toISOString(), seatsTotal: 1, entryMode: 'APPROVE' });
-    const eventId = create.body.id;
+    const postId = create.body.id;
 
     const reqA = await request(app.getHttpServer())
-      .post(`/events/${eventId}/join-requests`)
+      .post(`/posts/${postId}/join-requests`)
       .set('Authorization', `Bearer ${attendeeAToken}`)
       .send({ introText: 'me first' })
       .expect(201);
     expect(reqA.body.status).toBe('PENDING');
 
     const reqB = await request(app.getHttpServer())
-      .post(`/events/${eventId}/join-requests`)
+      .post(`/posts/${postId}/join-requests`)
       .set('Authorization', `Bearer ${attendeeBToken}`)
       .send({ introText: 'me too' })
       .expect(201);
@@ -70,18 +70,18 @@ describe('JoinRequests (e2e)', () => {
       .expect(403);
   });
 
-  it('auto-approves join requests on OPEN entry events', async () => {
+  it('auto-approves join requests on OPEN entry posts', async () => {
     const stamp = Date.now();
     const { token: hostToken } = await loginAsNewGoogleUser(app, `jr-open-host-${stamp}@example.com`);
     const { token: attendeeToken } = await loginAsNewGoogleUser(app, `jr-open-a-${stamp}@example.com`);
 
     const create = await request(app.getHttpServer())
-      .post('/events')
+      .post('/posts')
       .set('Authorization', `Bearer ${hostToken}`)
       .send({ title: 'Open door', date: new Date().toISOString(), seatsTotal: 5, entryMode: 'OPEN' });
 
     const req = await request(app.getHttpServer())
-      .post(`/events/${create.body.id}/join-requests`)
+      .post(`/posts/${create.body.id}/join-requests`)
       .set('Authorization', `Bearer ${attendeeToken}`)
       .send({})
       .expect(201);
