@@ -51,7 +51,8 @@ export const TextField = forwardRef<TextInput, TextInputProps & { big?: boolean;
     <TextInput
       ref={ref}
       value={value}
-      placeholder={hidePlaceholderOnFocus && focused ? '' : placeholder}
+      // undefined, not '': an empty hint pins the caret to the right edge of a centered Android field.
+      placeholder={hidePlaceholderOnFocus && focused ? undefined : placeholder}
       placeholderTextColor={colors.zinc400}
       style={[styles.field, big && styles.fieldBig, filled ? styles.fieldFilled : styles.fieldEmpty, style]}
       onFocus={(e) => { setFocused(true); onFocus?.(e); }}

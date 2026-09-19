@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deviceTokensApi } from './api';
 
 const DEVICE_TOKEN_ID_KEY = 'companion:deviceTokenId';
+// Bundled via the expo-notifications plugin in app.json; pushes must also send `sound: 'push-notif.wav'` for iOS.
+export const PUSH_SOUND = 'push-notif.wav';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -33,6 +35,7 @@ export async function registerForPushNotifications(): Promise<void> {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
         importance: Notifications.AndroidImportance.DEFAULT,
+        sound: PUSH_SOUND,
       });
     }
 

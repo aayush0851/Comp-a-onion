@@ -41,8 +41,16 @@ export function Bubble({ m, showName }: { m: BubbleMessage; showName?: boolean }
   );
 }
 
+// Within this many px of the bottom still counts as "reading the latest".
+const STICK_TO_BOTTOM_PX = 80;
+
+// Follows new messages down like any chat app, unless the user has scrolled up to read older ones.
 export function ChatBody({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   const scrollRef = useRef<ScrollView>(null);
+  const atBottom = useRef(true);
+  // Jump (not glide) to the bottom when the chat first opens; animate only once it has scrolled.
+  const settled = useRef(false);
+  const follow = () => { if (atBottom.current) scrollRef.current?.scrollToEnd({ animated: settled.current }); };
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -50,8 +58,13 @@ export function ChatBody({ children, footer }: { children: ReactNode; footer: Re
         style={{ flex: 1 }}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
-        onLayout={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        scrollEventThrottle={100}
+        onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+          atBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < STICK_TO_BOTTOM_PX;
+          settled.current = true;
+        }}
+        onContentSizeChange={follow}
+        onLayout={follow}
       >
         {children}
       </ScrollView>

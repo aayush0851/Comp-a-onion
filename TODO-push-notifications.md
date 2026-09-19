@@ -30,6 +30,8 @@
       `RATING_RECEIVED`) also fires a push, not just a DB row.
 - [ ] Handle Expo push receipts / tickets: on `DeviceNotRegistered`, delete that
       `DeviceToken` row so we stop retrying a dead token.
+- [ ] Send `sound: 'push-notif.wav'` (and `channelId: 'default'`) in every push — the file is
+      bundled via the expo-notifications plugin; iOS plays it only when the payload names it.
 - [ ] Decide notification copy per `NotificationKind` (title/body strings) — right
       now `payload` is a raw JSON blob with ids, nothing human-readable.
 

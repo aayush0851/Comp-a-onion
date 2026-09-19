@@ -11,6 +11,7 @@ import { COST_MODE_OPTIONS, GENDER_RESTRICTION_OPTIONS, PLAN_TYPES, nextSevenDay
 import { useAppState, useAppDispatch } from '../store';
 import TimeWheelSheet from '../components/TimeWheelSheet';
 import { postsApi, ApiError } from '../api';
+import { playSound } from '../sounds';
 import type { ApiPost } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
@@ -76,6 +77,7 @@ export default function Create({ navigation }: Props) {
         genderRestriction: state.genderRestriction,
         costMode: state.costMode,
       });
+      playSound('post');
       dispatch({ type: 'RESET_CREATE' });
       setPosted(post);
     } catch (e) {

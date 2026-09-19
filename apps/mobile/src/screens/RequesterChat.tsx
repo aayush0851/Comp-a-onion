@@ -10,6 +10,7 @@ import { initialsOf, toPostCard } from '../data/postDisplay';
 import { useAppState } from '../store';
 import { ApiError, chatApi, postsApi, usersApi } from '../api';
 import { connectSse } from '../realtime';
+import { playSound } from '../sounds';
 import { useChatThreadRead } from '../hooks/useChatThreadRead';
 import type { ApiChatMessage } from '../api/chat';
 import type { ApiPost, ApiUser } from '../api/types';
@@ -51,6 +52,7 @@ export default function RequesterChat({ navigation, route }: Props) {
     try {
       const msg = await chatApi.sendDm(requesterId, t, planId);
       setDraft('');
+      playSound('message');
       setMsgs((prev) => appendUnique(prev, msg));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't send that. Try again.");

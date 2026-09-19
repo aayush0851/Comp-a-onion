@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { Vibration } from 'react-native';
 import type { AuthState } from './authStore/schema';
 import { authInitialState, authReducer } from './authStore/model';
 import { clearSession, loadStoredAuth, persistAuth } from './authStore/service';
@@ -16,6 +17,7 @@ import { chatApi, notificationsApi } from '../api';
 import { isPlanUpdate, type ApiNotification } from '../api/notifications';
 import type { ApiChatMessage } from '../api/chat';
 import { connectSse } from '../realtime';
+import { playSound } from '../sounds';
 
 export type AppState = AuthState & OnboardingState & PlansState & ReviewState & ChatState;
 
@@ -88,14 +90,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.authReady, state.isAuthenticated]);
 
-  // Same for chats: a message from someone else flags its thread unless that chat is open.
+  // Same for chats: a message from someone else flags its thread (and buzzes, for silent mode) unless that chat is open.
   useEffect(() => {
     if (!state.authReady || !state.isAuthenticated) return;
     chatApi.loadUnreadCounts().then((counts) => dispatch({ type: 'SET_CHAT_UNREAD', counts })).catch(() => {});
     return connectSse<ApiChatMessage>('/chat/stream', (m) => {
       if (m.authorId === state.userId) return;
       const key = chatApi.messageThreadKey(m, state.userId);
-      if (!chatApi.isThreadOpen(key)) dispatch({ type: 'BUMP_CHAT_UNREAD', key });
+      playSound('message');
+      if (chatApi.isThreadOpen(key)) return;
+      dispatch({ type: 'BUMP_CHAT_UNREAD', key });
+      Vibration.vibrate();
     });
   }, [state.authReady, state.isAuthenticated, state.userId]);
 

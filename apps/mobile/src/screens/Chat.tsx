@@ -9,6 +9,7 @@ import { formatPostDate, formatPostTime, initialsOf } from '../data/postDisplay'
 import { useAppState } from '../store';
 import { chatApi, postsApi } from '../api';
 import { connectSse } from '../realtime';
+import { playSound } from '../sounds';
 import { useChatThreadRead } from '../hooks/useChatThreadRead';
 import type { ApiChatMessage } from '../api/chat';
 import type { ApiPost } from '../api/types';
@@ -44,6 +45,7 @@ export default function Chat({ navigation, route }: Props) {
     if (!text) return;
     setDraft('');
     const msg = await chatApi.sendPostMessage(route.params.id, text);
+    playSound('message');
     setMsgs((prev) => appendUnique(prev, msg));
   };
 
